@@ -1,109 +1,418 @@
-import ssl
-import json
+import flet as ft
 import os
 
-# Desativar verificação rigorosa de SSL
-ssl._create_default_https_context = ssl._create_unverified_context
-
-import flet as ft
-
-FICHEIRO_DADOS = "dados_orcamento.json"
-
 def main(page: ft.Page):
-    page.title = "Gestor de Poupança"
+    page.title = "Plataforma de Gestão: Empresa, Loja, Particular & Impostos"
     page.theme_mode = ft.ThemeMode.DARK
-    page.padding = 20
     page.scroll = ft.ScrollMode.AUTO
+    page.padding = 15
 
-    # Carregar Dados Guardados
-    def carregar_dados():
-        if os.path.exists(FICHEIRO_DADOS):
-            try:
-                with open(FICHEIRO_DADOS, "r", encoding="utf-8") as f:
-                    return json.load(f)
-            except Exception:
-                pass
-        return {"salario": 1500.0, "meta_poupanca": 300.0, "despesas": []}
-
-    dados = carregar_dados()
-
-    # Campos da Interface Mobile
-    txt_rendimento = ft.TextField(
-        label="Rendimento (€)", 
-        value=str(dados.get("salario", 1500.0)), 
-        keyboard_type=ft.KeyboardType.NUMBER
-    )
-    txt_meta = ft.TextField(
-        label="Meta de Poupança (€)", 
-        value=str(dados.get("meta_poupanca", 300.0)), 
-        keyboard_type=ft.KeyboardType.NUMBER
-    )
+    # ---------------------------------------------------------
+    # ESTRUTURA DE DADOS EM MEMÓRIA
+    # ---------------------------------------------------------
+    despesas_pessoais = []
+    clientes_empresa = []
     
-    txt_nome_despesa = ft.TextField(label="Nome da Despesa")
-    txt_valor_despesa = ft.TextField(label="Valor (€)", keyboard_type=ft.KeyboardType.NUMBER)
-    dd_categoria = ft.Dropdown(
-        label="Categoria",
-        options=[ft.dropdown.Option("Essencial"), ft.dropdown.Option("Lazer")],
-        value="Essencial"
+    # Loja & POS
+    caixa_inicio_dia = 0.0
+    vendas_dia = []
+    stock_fifo = []  # Ex: {"produto": "T-Shirt", "lote": 1, "qtd": 10, "custo": 5.0}
+
+    # Impostos
+    impostos_lista = [
+        {"nome": "IUC (Carro)", "tipo": "Particular", "mes": "Mês da Matrícula", "estado": "Pendente"},
+        {"nome": "IMI (1ª Prestação)", "tipo": "Particular", "mes": "Maio", "estado": "Pendente"},
+        {"nome": "IRS (Entrega)", "tipo": "Particular", "mes": "Abril - Junho", "estado": "Pendente"},
+        {"nome": "IVA (Trimestral)", "tipo": "Empresa", "mes": "Fevereiro / Maio / Agosto / Novembro", "estado": "Pendente"},
+        {"nome": "IRC / Pag. por Conta", "tipo": "Empresa", "mes": "Julho / Setembro / Dezembro", "estado": "Pendente"},
+        {"nome": "Segurança Social (TSU)", "tipo": "Empresa", "mes": "Mensal (Dia 20)", "estado": "Pendente"},
+    ]
+
+    # File Picker Generico
+    file_picker = ft.FilePicker(on_result=lambda e: page.show_snack_bar(ft.SnackBar(ft.Text("Ficheiro / Print Anexado com Sucesso!"))))
+    page.overlay.append(file_picker)
+
+    # =========================================================
+    # 🟢 PERFIL PARTICULAR (DIA A DIA & IMPOSTOS)
+    # =========================================================
+    txt_rendimento_p = ft.TextField(label="Rendimento / Saldo (€)", value="1500", keyboard_type=ft.KeyboardType.NUMBER, width=170, on_change=lambda e: atualizar_particular())
+    txt_meta_p = ft.TextField(label="Meta Poupança (€)", value="300", keyboard_type=ft.KeyboardType.NUMBER, width=170, on_change=lambda e: atualizar_particular())
+
+    txt_nome_p = ft.TextField(label="Nome da Despesa", expand=True)
+    txt_valor_p = ft.TextField(label="Valor (€)", keyboard_type=ft.KeyboardType.NUMBER, width=120)
+    dd_cat_p = ft.Dropdown(
+        label="Categoria", width=150, value="Essencial",
+        options=[ft.dropdown.Option("Essencial"), ft.dropdown.Option("Alimentação"), ft.dropdown.Option("Lazer"), ft.dropdown.Option("Transportes"), ft.dropdown.Option("Outros")]
     )
 
-    lista_despesas_ui = ft.Column()
+    luz_p = ft.Container(width=18, height=18, border_radius=9, bgcolor=ft.Colors.GREEN)
+    lbl_luz_p = ft.Text("Situação Controlada", weight=ft.FontWeight.BOLD, color=ft.Colors.GREEN)
+    
+    alerta_p = ft.Container(
+        content=ft.Text("⚠️ ALERTA: Estás a gastar mais de 80% do teu rendimento!", color=ft.Colors.WHITE, weight=ft.FontWeight.BOLD),
+        bgcolor=ft.Colors.RED_800, padding=10, border_radius=6, visible=False
+    )
 
-    def atualizar_lista():
-        lista_despesas_ui.controls.clear()
-        for d in dados.get("despesas", []):
-            lista_despesas_ui.controls.append(
+    lbl_diag_p = ft.Text("Regista gastos para teres conselhos personalizados.", size=13)
+    lista_desp_p = ft.Column()
+    lbl_tot_gastos_p = ft.Text("Gastos: 0.00 €", weight=ft.FontWeight.BOLD)
+    lbl_saldo_p = ft.Text("Saldo: 0.00 €", weight=ft.FontWeight.BOLD)
+
+    def add_despesa_p(e):
+        if txt_nome_p.value and txt_valor_p.value:
+            try:
+                despesas_pessoais.append({"nome": txt_nome_p.value, "valor": float(txt_valor_p.value), "cat": dd_cat_p.value})
+                txt_nome_p.value = ""
+                txt_valor_p.value = ""
+                atualizar_particular()
+            except ValueError: pass
+
+    def atualizar_particular():
+        try: rend = float(txt_rendimento_p.value or 0); meta = float(txt_meta_p.value or 0)
+        except ValueError: rend = meta = 0
+
+        tot = sum(d["valor"] for d in despesas_pessoais)
+        saldo = rend - tot
+
+        lbl_tot_gastos_p.value = f"Total Gastos: {tot:.2f} €"
+        lbl_saldo_p.value = f"Saldo Atual: {saldo:.2f} €"
+
+        alerta_p.visible = (rend > 0 and (tot / rend) >= 0.8)
+
+        if saldo >= meta:
+            luz_p.bgcolor = ft.Colors.GREEN; lbl_luz_p.value = "🟢 Poupança Saudável"; lbl_luz_p.color = ft.Colors.GREEN
+        elif saldo > 0:
+            luz_p.bgcolor = ft.Colors.YELLOW_600; lbl_luz_p.value = "🟡 Atenção à Meta"; lbl_luz_p.color = ft.Colors.YELLOW_600
+        else:
+            luz_p.bgcolor = ft.Colors.RED; lbl_luz_p.value = "🔴 Orçamento Ultrapassado"; lbl_luz_p.color = ft.Colors.RED
+
+        lista_desp_p.controls.clear()
+        for d in despesas_pessoais:
+            lista_desp_p.controls.append(ft.ListTile(title=ft.Text(f"{d['nome']} ({d['cat']})"), trailing=ft.Text(f"-{d['valor']:.2f} €", color=ft.Colors.RED_400)))
+        page.update()
+
+    perfil_particular = ft.Column([
+        ft.Text("👤 Perfil Particular (Gestão Doméstica)", size=20, weight=ft.FontWeight.BOLD, color=ft.Colors.CYAN_300),
+        alerta_p,
+        ft.Row([txt_rendimento_p, txt_meta_p]),
+        ft.OutlinedButton("📱 Carregar Print do Saldo Bancário", icon=ft.Icons.IMAGE, on_click=lambda e: file_picker.pick_files()),
+        ft.Card(content=ft.Container(content=ft.Column([ft.Row([luz_p, lbl_luz_p]), lbl_diag_p]), padding=12)),
+        ft.Row([txt_nome_p, txt_valor_p, dd_cat_p]),
+        ft.Row([
+            ft.ElevatedButton("Adicionar Gastos", icon=ft.Icons.ADD, on_click=add_despesa_p),
+            ft.OutlinedButton("📷 Anexar Recibo", icon=ft.Icons.CAMERA_ALT, on_click=lambda e: file_picker.pick_files())
+        ]),
+        ft.Divider(),
+        ft.Row([lbl_tot_gastos_p, lbl_saldo_p], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+        lista_desp_p
+    ])
+
+    # =========================================================
+    # 🏢 PERFIL EMPRESA & CRM (DIVULGADORES & COMPRADORES)
+    # =========================================================
+    txt_cli_nome = ft.TextField(label="Nome do Contacto / Empresa", expand=True)
+    txt_cli_contacto = ft.TextField(label="Telefone / Email", width=180)
+    dd_cli_papel = ft.Dropdown(
+        label="Papel / Função", width=180, value="Comprador",
+        options=[
+            ft.dropdown.Option("Comprador Potencial"),
+            ft.dropdown.Option("Comprador Confirmado"),
+            ft.dropdown.Option("Parceiro / Divulgador"),
+            ft.dropdown.Option("Fornecedor")
+        ]
+    )
+    lista_clientes = ft.Column()
+
+    def add_cliente(e):
+        if txt_cli_nome.value:
+            clientes_empresa.append({"nome": txt_cli_nome.value, "contacto": txt_cli_contacto.value, "papel": dd_cli_papel.value})
+            txt_cli_nome.value = ""; txt_cli_contacto.value = ""
+            atualizar_empresa()
+
+    # Previsão Financeira Empresarial
+    txt_emp_fat = ft.TextField(label="Faturação Prevista (€)", value="5000", keyboard_type=ft.KeyboardType.NUMBER, width=170, on_change=lambda e: atualizar_empresa())
+    txt_emp_gastos = ft.TextField(label="Gastos / Custos (€)", value="2200", keyboard_type=ft.KeyboardType.NUMBER, width=170, on_change=lambda e: atualizar_empresa())
+    lbl_emp_lucro = ft.Text("Lucro Previsto: 0.00 €", size=16, weight=ft.FontWeight.BOLD, color=ft.Colors.GREEN_300)
+
+    # Orçamentos
+    txt_orc_cliente = ft.TextField(label="Nome do Cliente", expand=True)
+    txt_orc_servico = ft.TextField(label="Descrição do Serviço / Obra", expand=True)
+    txt_orc_valor_base = ft.TextField(label="Mão de Obra (€)", value="1200", width=140)
+    txt_orc_materiais = ft.TextField(label="Materiais (€)", value="500", width=130)
+    dd_orc_iva = ft.Dropdown(label="IVA", width=110, value="23%", options=[ft.dropdown.Option("6%"), ft.dropdown.Option("13%"), ft.dropdown.Option("23%")])
+    lbl_orc_resultado = ft.Text("Preenche os dados para gerar o orçamento visual.", size=13)
+
+    def gerar_orcamento_empresa(e):
+        try:
+            base = float(txt_orc_valor_base.value or 0)
+            mat = float(txt_orc_materiais.value or 0)
+            subtotal = base + mat
+            taxa = float(dd_orc_iva.value.replace("%", "")) / 100.0
+            iva = subtotal * taxa
+            total = subtotal + iva
+
+            lbl_orc_resultado.value = (
+                f"📄 **PROPOSTA DE ORÇAMENTO COMERCIAL**\n"
+                f"👤 **Cliente:** {txt_orc_cliente.value or 'Cliente'}\n"
+                f"🛠️ **Serviço:** {txt_orc_servico.value or 'Serviço Técnico'}\n"
+                f"----------------------------------------\n"
+                f"• Mão de Obra: {base:.2f} €\n"
+                f"• Materiais: {mat:.2f} €\n"
+                f"• Subtotal Liquido: {subtotal:.2f} €\n"
+                f"• IVA ({dd_orc_iva.value}): {iva:.2f} €\n"
+                f"💰 **TOTAL COM IVA: {total:.2f} €**\n"
+                f"----------------------------------------\n"
+                f"📌 *Orçamento válido por 30 dias.*"
+            )
+        except Exception:
+            lbl_orc_resultado.value = "⚠️ Erro ao calcular orçamento."
+        page.update()
+
+    def atualizar_empresa():
+        try:
+            fat = float(txt_emp_fat.value or 0)
+            gastos = float(txt_emp_gastos.value or 0)
+            lucro = fat - gastos
+            lbl_emp_lucro.value = f"📈 Lucro Previsto: {lucro:.2f} €"
+        except ValueError: pass
+
+        lista_clientes.controls.clear()
+        for c in clientes_empresa:
+            icone = ft.Icons.RECORD_VOICE_OVER if "Divulgador" in c['papel'] else ft.Icons.SHOPPING_BAG
+            lista_clientes.controls.append(
                 ft.ListTile(
-                    leading=ft.Icon(ft.Icons.ATTACH_MONEY),
-                    title=ft.Text(f"{d['nome']} - {d['valor']:.2f}€"),
-                    subtitle=ft.Text(f"Categoria: {d['categoria']}")
+                    leading=ft.Icon(icone, color=ft.Colors.AMBER),
+                    title=ft.Text(f"{c['nome']} ({c['contacto']})"),
+                    subtitle=ft.Text(f"Função: {c['papel']}")
                 )
             )
         page.update()
 
-    def adicionar_despesa(e):
-        if txt_nome_despesa.value and txt_valor_despesa.value:
+    perfil_empresa = ft.Column([
+        ft.Text("🏢 Gestão de Negócio & Clientes", size=20, weight=ft.FontWeight.BOLD, color=ft.Colors.AMBER_300),
+        
+        ft.Card(
+            content=ft.Container(
+                content=ft.Column([
+                    ft.Text("📊 Previsão Financeira Geral", size=16, weight=ft.FontWeight.BOLD),
+                    ft.Row([txt_emp_fat, txt_emp_gastos]),
+                    lbl_emp_lucro
+                ]), padding=12
+            )
+        ),
+        
+        ft.Text("👥 Redes de Contactos (Compradores & Divulgadores)", size=16, weight=ft.FontWeight.BOLD),
+        ft.Row([txt_cli_nome, txt_cli_contacto, dd_cli_papel]),
+        ft.ElevatedButton("Registar Contacto", icon=ft.Icons.PERSON_ADD, on_click=add_cliente),
+        lista_clientes,
+
+        ft.Divider(),
+
+        ft.Text("📄 Orçamentos Rápidos", size=16, weight=ft.FontWeight.BOLD),
+        txt_orc_cliente,
+        txt_orc_servico,
+        ft.Row([txt_orc_valor_base, txt_orc_materiais, dd_orc_iva]),
+        ft.ElevatedButton("Gerar Orçamento", icon=ft.Icons.RECEIPT, on_click=gerar_orcamento_empresa),
+        ft.Card(content=ft.Container(content=lbl_orc_resultado, padding=15)),
+    ])
+
+    # =========================================================
+    # 🏪 MÓDULO DE LOJA, CAIXA & STOCK FIFO
+    # =========================================================
+    txt_fundo_caixa = ft.TextField(label="Fundo de Maneio / Início do Dia (€)", value="100.00", width=220)
+    lbl_status_caixa = ft.Text("Caixa Aberta com 100.00 €", color=ft.Colors.GREEN_400, weight=ft.FontWeight.BOLD)
+
+    # Stock FIFO
+    txt_prod_nome = ft.TextField(label="Produto / Item", expand=True)
+    txt_prod_qtd = ft.TextField(label="Qtd Lote", width=100, keyboard_type=ft.KeyboardType.NUMBER)
+    txt_prod_custo = ft.TextField(label="Custo Un. (€)", width=110, keyboard_type=ft.KeyboardType.NUMBER)
+    lista_stock_fifo = ft.Column()
+
+    # Venda Rápida
+    txt_venda_item = ft.TextField(label="Item a Vender", expand=True)
+    txt_venda_valor = ft.TextField(label="Valor Venda (€)", width=130, keyboard_type=ft.KeyboardType.NUMBER)
+    lista_vendas_dia = ft.Column()
+    lbl_tot_vendas_dia = ft.Text("Total Vendas do Dia: 0.00 €", size=16, weight=ft.FontWeight.BOLD, color=ft.Colors.CYAN_300)
+
+    lbl_fecho_resumo = ft.Text("Faz o fecho do dia para veres o balanço final da caixa.", size=13)
+
+    def iniciar_caixa(e):
+        try:
+            global caixa_inicio_dia
+            caixa_inicio_dia = float(txt_fundo_caixa.value or 0)
+            lbl_status_caixa.value = f"🟢 Caixa Aberta! Fundo Inicial: {caixa_inicio_dia:.2f} €"
+        except ValueError: pass
+        page.update()
+
+    def dar_entrada_fifo(e):
+        if txt_prod_nome.value and txt_prod_qtd.value and txt_prod_custo.value:
             try:
-                v = float(txt_valor_despesa.value.replace(',', '.'))
-                dados["despesas"].append({
-                    "nome": txt_nome_despesa.value,
-                    "valor": v,
-                    "categoria": dd_categoria.value
+                lote_id = len(stock_fifo) + 1
+                stock_fifo.append({
+                    "lote": lote_id,
+                    "item": txt_prod_nome.value,
+                    "qtd": int(txt_prod_qtd.value),
+                    "custo": float(txt_prod_custo.value)
                 })
-                with open(FICHEIRO_DADOS, "w", encoding="utf-8") as f:
-                    json.dump(dados, f, indent=4)
-                txt_nome_despesa.value = ""
-                txt_valor_despesa.value = ""
-                atualizar_lista()
-                page.snack_bar = ft.SnackBar(ft.Text("Despesa guardada com sucesso!"))
-                page.snack_bar.open = True
-                page.update()
-            except ValueError:
-                pass
+                txt_prod_nome.value = ""; txt_prod_qtd.value = ""; txt_prod_custo.value = ""
+                atualizar_loja()
+            except ValueError: pass
 
-    btn_adicionar = ft.Button("➕ Adicionar Despesa", on_click=adicionar_despesa)
+    def registar_venda(e):
+        if txt_venda_item.value and txt_venda_valor.value:
+            try:
+                val = float(txt_venda_valor.value)
+                item_nome = txt_venda_item.value
+                
+                # Saída FIFO do Stock
+                for lote in stock_fifo:
+                    if lote["item"].lower() == item_nome.lower() and lote["qtd"] > 0:
+                        lote["qtd"] -= 1
+                        break
 
-    atualizar_lista()
+                vendas_dia.append({"item": item_nome, "valor": val})
+                txt_venda_item.value = ""; txt_venda_valor.value = ""
+                atualizar_loja()
+            except ValueError: pass
 
-    # Layout do Telemóvel
-    page.add(
-        ft.Text("💰 Gestor de Poupança", size=24, weight=ft.FontWeight.BOLD),
-        txt_rendimento,
-        txt_meta,
+    def realizar_fecho_dia(e):
+        tot_vendas = sum(v["valor"] for v in vendas_dia)
+        total_em_caixa = caixa_inicio_dia + tot_vendas
+        lbl_fecho_resumo.value = (
+            f"🔒 **FECHO DE DIA CONCLUÍDO**\n"
+            f"• Fundo Inicial de Caixa: {caixa_inicio_dia:.2f} €\n"
+            f"• Total de Vendas Registadas: {tot_vendas:.2f} €\n"
+            f"💰 **VALOR TOTAL ESPERADO EM CAIXA: {total_em_caixa:.2f} €**\n"
+            f"✅ *Relatório do dia guardado.*"
+        )
+        page.update()
+
+    def atualizar_loja():
+        tot_vendas = sum(v["valor"] for v in vendas_dia)
+        lbl_tot_vendas_dia.value = f"Total Vendas Hoje: {tot_vendas:.2f} €"
+
+        # Atualizar Stock FIFO
+        lista_stock_fifo.controls.clear()
+        for s in stock_fifo:
+            lista_stock_fifo.controls.append(
+                ft.ListTile(
+                    leading=ft.Icon(ft.Icons.INVENTORY_2),
+                    title=ft.Text(f"{s['item']} (Lote #{s['lote']})"),
+                    subtitle=ft.Text(f"Qtd Restante: {s['qtd']} | Custo Un: {s['custo']:.2f} €")
+                )
+            )
+
+        # Atualizar Vendas do Dia
+        lista_vendas_dia.controls.clear()
+        for v in vendas_dia:
+            lista_vendas_dia.controls.append(
+                ft.ListTile(
+                    leading=ft.Icon(ft.Icons.POINT_OF_SALE, color=ft.Colors.GREEN),
+                    title=ft.Text(v["item"]),
+                    trailing=ft.Text(f"+{v['valor']:.2f} €", color=ft.Colors.GREEN_400, weight=ft.FontWeight.BOLD)
+                )
+            )
+        page.update()
+
+    perfil_loja = ft.Column([
+        ft.Text("🏪 Gestão de Loja, POS & Stock (FIFO)", size=20, weight=ft.FontWeight.BOLD, color=ft.Colors.TEAL_200),
+        
+        # Abertura de Caixa
+        ft.Card(
+            content=ft.Container(
+                content=ft.Column([
+                    ft.Text("🌅 Início do Dia / Fundo de Caixa", size=16, weight=ft.FontWeight.BOLD),
+                    ft.Row([txt_fundo_caixa, ft.ElevatedButton("Abrir Caixa", icon=ft.Icons.LOCK_OPEN, on_click=iniciar_caixa)]),
+                    lbl_status_caixa
+                ]), padding=12
+            )
+        ),
+
+        # Entrada de Produtos (FIFO)
+        ft.Text("📦 Entrada de Produto no Stock (Lotes FIFO)", size=16, weight=ft.FontWeight.BOLD),
+        ft.Row([txt_prod_nome, txt_prod_qtd, txt_prod_custo]),
+        ft.ElevatedButton("Registar Entrada no Stock", icon=ft.Icons.ADD_BOX, on_click=dar_entrada_fifo),
+        lista_stock_fifo,
+
         ft.Divider(),
-        ft.Text("Registar Despesa", size=18, weight=ft.FontWeight.BOLD),
-        txt_nome_despesa,
-        txt_valor_despesa,
-        dd_categoria,
-        btn_adicionar,
-        ft.Divider(),
-        ft.Text("Lista de Gastos", size=18, weight=ft.FontWeight.BOLD),
-        lista_despesas_ui
+
+        # Vendas e Fecho
+        ft.Text("🛒 Ponto de Venda (Saída Rápida)", size=16, weight=ft.FontWeight.BOLD),
+        ft.Row([txt_venda_item, txt_venda_valor]),
+        ft.ElevatedButton("Registar Venda", icon=ft.Icons.SHOPPING_CART_CHECK, on_click=registar_venda),
+        lbl_tot_vendas_dia,
+        lista_vendas_dia,
+
+        ft.Card(
+            content=ft.Container(
+                content=ft.Column([
+                    ft.Text("🌙 Fecho do Dia", size=16, weight=ft.FontWeight.BOLD, color=ft.Colors.ORANGE_300),
+                    ft.ElevatedButton("Calcular & Fechar Dia", icon=ft.Icons.LOCK, on_click=realizar_fecho_dia),
+                    lbl_fecho_resumo
+                ]), padding=12
+            )
+        )
+    ])
+
+    # =========================================================
+    # 🏛️ ABA DE ALERTAS DE IMPOSTOS (IUC, IRS, IMI, IVA)
+    # =========================================================
+    lista_impostos_ui = ft.Column()
+
+    def alternar_imposto(imp):
+        imp["estado"] = "Pago ✅" if imp["estado"] == "Pendente" else "Pendente"
+        atualizar_impostos()
+
+    def atualizar_impostos():
+        lista_impostos_ui.controls.clear()
+        for imp in impostos_lista:
+            cor = ft.Colors.GREEN_400 if imp["estado"] == "Pago ✅" else ft.Colors.RED_400
+            lista_impostos_ui.controls.append(
+                ft.ListTile(
+                    leading=ft.Icon(ft.Icons.ACCOUNT_BALANCE, color=cor),
+                    title=ft.Text(f"{imp['nome']} [{imp['tipo']}]", weight=ft.FontWeight.BOLD),
+                    subtitle=ft.Text(f"Prazo de Pagamento: {imp['mes']}"),
+                    trailing=ft.OutlinedButton(imp["estado"], on_click=lambda e, i=imp: alternar_imposto(i))
+                )
+            )
+        page.update()
+
+    perfil_impostos = ft.Column([
+        ft.Text("🏛️ Calendário & Alertas de Impostos (Portugal)", size=20, weight=ft.FontWeight.BOLD, color=ft.Colors.RED_300),
+        ft.Text("Acompanha os prazos para evitar coimas da Autoridade Tributária (Finanças):"),
+        lista_impostos_ui,
+        ft.Card(
+            content=ft.Container(
+                content=ft.Column([
+                    ft.Text("💡 Dica Fiscal Importante:", weight=ft.FontWeight.BOLD, color=ft.Colors.AMBER_200),
+                    ft.Text("• **IUC:** Deve ser pago até ao último dia do mês da matrícula do veículo."),
+                    ft.Text("• **IMI:** Pode ser pago em 1, 2 ou 3 prestações consoante o valor total (Maio, Agosto, Novembro)."),
+                    ft.Text("• **IVA:** Mantém sempre de parte a percentagem de IVA faturada aos teus clientes para não teres surpresas no fecho do trimestre.")
+                ]), padding=12
+            )
+        )
+    ])
+
+    # =========================================================
+    # NAVEGAÇÃO PRINCIPAL (4 ABAS)
+    # =========================================================
+    tabs = ft.Tabs(
+        selected_index=0,
+        animation_duration=300,
+        tabs=[
+            ft.Tab(text="🏢 Empresa", icon=ft.Icons.BUSINESS, content=perfil_empresa),
+            ft.Tab(text="🏪 Loja & POS", icon=ft.Icons.STORE, content=perfil_loja),
+            ft.Tab(text="👤 Particular", icon=ft.Icons.PERSON, content=perfil_particular),
+            ft.Tab(text="🏛️ Impostos", icon=ft.Icons.RECEIPT_LONG, content=perfil_impostos),
+        ],
+        expand=True
     )
 
-ft.app(target=main, view=ft.AppView.WEB_BROWSER)
-
-import os
+    page.add(tabs)
+    atualizar_particular()
+    atualizar_empresa()
+    atualizar_loja()
+    atualizar_impostos()
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
