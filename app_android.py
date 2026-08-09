@@ -84,7 +84,7 @@ def main(page: ft.Page):
     ]
     lbl_frase = ft.Text(random.choice(frases_motivacionais), italic=True, size=14, color="#0052CC", weight=ft.FontWeight.BOLD)
 
-    # UPLOADER DE FOTOS
+    # UPLOADER DE FOTOS (Ajustado para novas versões do Flet)
     img_preview = ft.Image(src="", width=150, height=150, fit="cover", visible=False, border_radius=8)
     lbl_status_foto = ft.Text("Nenhuma foto anexa", size=12, italic=True, color="#7A869A")
 
@@ -103,7 +103,8 @@ def main(page: ft.Page):
             img_preview.visible = False
         page.update()
 
-    file_picker = ft.FilePicker(on_result=ao_selecionar_foto)
+    file_picker = ft.FilePicker()
+    file_picker.on_result = ao_selecionar_foto
     page.overlay.append(file_picker)
 
     # =========================================================
