@@ -455,28 +455,33 @@ def main(page: ft.Page):
     ])
 
     # =========================================================
-    # NAVEGAÇÃO PRINCIPAL (Sintaxe Standard Flet)
+    # NAVEGAÇÃO UNIVERSAL (BOTÕES SELETORES)
     # =========================================================
-    tabs = ft.Tabs(
-        selected_index=0,
-        animation_duration=300,
- # =========================================================
-    # NAVEGAÇÃO PRINCIPAL
-    # =========================================================
-    tabs = ft.Tabs(
-        selected_index=0,
-        animation_duration=300,
-        tabs=[
-            ft.Tab(text="🏢 Empresa", content=perfil_empresa),
-            ft.Tab(text="🏪 Loja & POS", content=perfil_loja),
-            ft.Tab(text="👤 Particular", content=perfil_particular),
-            ft.Tab(text="🏛️ Impostos", content=perfil_impostos),
-            ft.Tab(text="🧮 Simulador IRS", content=perfil_simulador_irs),
+    conteudo_principal = ft.Container(content=perfil_empresa, expand=True)
+
+    def mudar_aba(e):
+        idx = int(e.control.data)
+        seccoes = [perfil_empresa, perfil_loja, perfil_particular, perfil_impostos, perfil_simulador_irs]
+        conteudo_principal.content = seccoes[idx]
+        page.update()
+
+    botoes_navegacao = ft.Row(
+        controls=[
+            ft.ElevatedButton("🏢 Empresa", data=0, on_click=mudar_aba),
+            ft.ElevatedButton("🏪 Loja", data=1, on_click=mudar_aba),
+            ft.ElevatedButton("👤 Particular", data=2, on_click=mudar_aba),
+            ft.ElevatedButton("🏛️ Impostos", data=3, on_click=mudar_aba),
+            ft.ElevatedButton("🧮 IRS", data=4, on_click=mudar_aba),
         ],
-        expand=True
+        scroll=ft.ScrollMode.AUTO
     )
 
-    page.add(tabs)
+    page.add(
+        botoes_navegacao,
+        ft.Divider(),
+        conteudo_principal
+    )
+
     atualizar_particular()
     atualizar_empresa()
     atualizar_loja()
