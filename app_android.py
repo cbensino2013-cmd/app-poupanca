@@ -460,12 +460,18 @@ def main(page: ft.Page):
     tabs = ft.Tabs(
         selected_index=0,
         animation_duration=300,
+ # =========================================================
+    # NAVEGAÇÃO PRINCIPAL
+    # =========================================================
+    tabs = ft.Tabs(
+        selected_index=0,
+        animation_duration=300,
         tabs=[
-            ft.Tab(tab_content=ft.Text("🏢 Empresa"), content=perfil_empresa),
-            ft.Tab(tab_content=ft.Text("🏪 Loja & POS"), content=perfil_loja),
-            ft.Tab(tab_content=ft.Text("👤 Particular"), content=perfil_particular),
-            ft.Tab(tab_content=ft.Text("🏛️ Impostos"), content=perfil_impostos),
-            ft.Tab(tab_content=ft.Text("🧮 Simulador IRS"), content=perfil_simulador_irs),
+            ft.Tab(text="🏢 Empresa", content=perfil_empresa),
+            ft.Tab(text="🏪 Loja & POS", content=perfil_loja),
+            ft.Tab(text="👤 Particular", content=perfil_particular),
+            ft.Tab(text="🏛️ Impostos", content=perfil_impostos),
+            ft.Tab(text="🧮 Simulador IRS", content=perfil_simulador_irs),
         ],
         expand=True
     )
