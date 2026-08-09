@@ -88,7 +88,7 @@ def main(page: ft.Page):
     img_preview = ft.Image(src="", width=150, height=150, fit="cover", visible=False, border_radius=8)
     lbl_status_foto = ft.Text("Nenhuma foto anexa", size=12, italic=True, color="#7A869A")
 
-    def ao_selecionar_foto(e: ft.FilePickerResultEvent):
+    def ao_selecionar_foto(e):
         if e.files and len(e.files) > 0:
             ficheiro = e.files[0]
             foto_preview_url["src"] = ficheiro.path
