@@ -2,810 +2,253 @@ import flet as ft
 import os
 import random
 
-
 def main(page: ft.Page):
-    # =========================================================
-    # CONFIGURACAO DA PAGINA
-    # =========================================================
-
-    page.title = "AURA 360 | Gestao Financeira & Patrimonio"
+    # ---------------------------------------------------------
+    # CONFIGURAÇÕES DE TEMA & PÁGINA
+    # ---------------------------------------------------------
+    page.title = "AURA 360 | Gestão Financeira & Otimização B2B/B2C"
     page.theme_mode = ft.ThemeMode.LIGHT
     page.bgcolor = "#F8FAFC"
     page.padding = 20
     page.scroll = ft.ScrollMode.AUTO
 
-    # =========================================================
-    # DADOS DAS FATURAS
-    # =========================================================
-
+    # ---------------------------------------------------------
+    # ESTRUTURA DE DADOS
+    # ---------------------------------------------------------
     faturas = [
-        {
-            "num": "FT 2026/089",
-            "entidade": "Supermercado Continente",
-            "cat": "Despesas Gerais",
-            "valor": 124.50,
-            "pago": True
-        },
-        {
-            "num": "FT 2026/102",
-            "entidade": "Farmacia Central",
-            "cat": "Saude",
-            "valor": 45.20,
-            "pago": True
-        },
-        {
-            "num": "FT 2026/115",
-            "entidade": "Restaurante Alma",
-            "cat": "Restauracao",
-            "valor": 88.00,
-            "pago": False
-        }
+        {"num": "FT 2026/089", "entidade": "Supermercado Continente", "cat": "🛒 Despesas Gerais", "valor": 124.50, "pago": True, "tipo": "Pessoal"},
+        {"num": "FT 2026/102", "entidade": "Farmácia Central", "cat": "🏥 Saúde", "valor": 45.20, "pago": True, "tipo": "Pessoal"},
+        {"num": "FT 2026/115", "entidade": "Combustíveis Galp", "cat": "🚗 Deslocações & Empresa", "valor": 65.00, "pago": False, "tipo": "Empresa"},
     ]
-
-    # =========================================================
-    # DEDUCOES IRS
-    # =========================================================
 
     deducoes_irs = [
-        {
-            "cat": "Despesas Gerais",
-            "atual": 240.0,
-            "max": 350.0,
-            "cor": "#3B82F6",
-            "dica": "Faltam 110 EUR para atingir o teto."
-        },
-        {
-            "cat": "Saude e Bem-Estar",
-            "atual": 112.5,
-            "max": 1000.0,
-            "cor": "#10B981",
-            "dica": "Guarde todas as faturas de saude."
-        },
-        {
-            "cat": "Educacao e Formacao",
-            "atual": 450.0,
-            "max": 800.0,
-            "cor": "#F59E0B",
-            "dica": "Propinas e material escolar podem contar."
-        },
-        {
-            "cat": "Habitacao e Rendas",
-            "atual": 320.0,
-            "max": 502.0,
-            "cor": "#8B5CF6",
-            "dica": "Confirme os recibos de renda no e-Fatura."
-        },
-        {
-            "cat": "Restauracao e Lazer",
-            "atual": 135.0,
-            "max": 250.0,
-            "cor": "#EC4899",
-            "dica": "Guarde as faturas de restaurantes."
-        }
+        {"cat": "🛒 Despesas Gerais", "atual": 240.0, "max": 350.0, "cor": "#3B82F6", "dica": "Faltam 110€ para atingir o teto máximo de dedução!"},
+        {"cat": "🏥 Saúde & Bem-Estar", "atual": 112.5, "max": 1000.0, "cor": "#10B981", "dica": "Guarde todas as faturas com receita médica a 23%."},
+        {"cat": "🎓 Educação & Formação", "atual": 450.0, "max": 800.0, "cor": "#F59E0B", "dica": "Propinas e manuais escolares conferem até 30% de dedução."},
+        {"cat": "🏠 Habitação & Rendas", "atual": 320.0, "max": 502.0, "cor": "#8B5CF6", "dica": "Recibos de renda declarados entram diretamente no e-Fatura."},
+        {"cat": "🚗 Restauração & Lazer", "atual": 135.0, "max": 250.0, "cor": "#EC4899", "dica": "15% do IVA suportado em restaurantes volta para si no IRS."},
     ]
 
-    # =========================================================
-    # METAS DE POUPANCA
-    # =========================================================
-
-    metas_poupanca = [
-        {
-            "nome": "Fundo de Emergencia",
-            "atual": 4500,
-            "meta": 6000,
-            "cor": "#10B981"
-        },
-        {
-            "nome": "Ferias e Viagens",
-            "atual": 1200,
-            "meta": 2000,
-            "cor": "#3B82F6"
-        },
-        {
-            "nome": "Investimentos / PPR",
-            "atual": 800,
-            "meta": 2000,
-            "cor": "#8B5CF6"
-        }
-    ]
-
-    # =========================================================
-    # FUNCAO PARA CRIAR CARDS
-    # =========================================================
-
-    def criar_card(
-        titulo,
-        valor,
-        texto,
-        icone,
-        cor
-    ):
+    # ---------------------------------------------------------
+    # COMPONENTES VISUAIS (CARDS & MÉTRICAS)
+    # ---------------------------------------------------------
+    def criar_card_metrica(titulo, valor, subtexto, icone, cor_icone, cor_fundo="#FFFFFF"):
         return ft.Container(
             expand=True,
-            bgcolor="#FFFFFF",
+            bgcolor=cor_fundo,
             padding=20,
             border_radius=16,
-            border=ft.Border.all(
-                1,
-                "#E2E8F0"
-            ),
-            content=ft.Column(
-                [
-                    ft.Row(
-                        [
-                            ft.Text(
-                                titulo,
-                                size=13,
-                                color="#64748B",
-                                weight=ft.FontWeight.W_600
-                            ),
-                            ft.Container(
-                                content=ft.Icon(
-                                    icone,
-                                    color=cor,
-                                    size=20
-                                ),
-                                bgcolor="#EFF6FF",
-                                padding=8,
-                                border_radius=10
-                            )
-                        ],
-                        alignment=ft.MainAxisAlignment.SPACE_BETWEEN
-                    ),
-                    ft.Text(
-                        valor,
-                        size=24,
-                        color="#0F172A",
-                        weight=ft.FontWeight.BOLD
-                    ),
-                    ft.Text(
-                        texto,
-                        size=12,
-                        color="#10B981"
+            border=ft.Border.all(1, "#E2E8F0"),
+            shadow=ft.BoxShadow(blur_radius=10, color="#0D000000"),
+            content=ft.Column([
+                ft.Row([
+                    ft.Text(titulo, size=13, weight=ft.FontWeight.W_600, color="#64748B"),
+                    ft.Container(
+                        content=ft.Icon(icone, color=cor_icone, size=20),
+                        bgcolor="#1F" + cor_icone.lstrip("#"),
+                        padding=8,
+                        border_radius=10
                     )
-                ],
-                spacing=10
-            )
+                ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+                ft.Text(valor, size=24, weight=ft.FontWeight.BOLD, color="#0F172A"),
+                ft.Text(subtexto, size=12, color="#10B981" if "+" in subtexto or "🟢" in subtexto else "#64748B", weight=ft.FontWeight.W_500)
+            ])
         )
 
-    # =========================================================
-    # CARDS DO DASHBOARD
-    # =========================================================
+    # ---------------------------------------------------------
+    # ABA 1: DASHBOARD EXECUTIVO & INTELIGÊNCIA FISCAL
+    # ---------------------------------------------------------
+    card_saldo = criar_card_metrica("Património / Saldo Líquido", "12.450,00 €", "🟢 +8.4% este mês", ft.Icons.ACCOUNT_BALANCE_WALLET, "#10B981")
+    card_irs = criar_card_metrica("Retorno Estimado IRS", "1.257,50 €", "💡 82% do teto máximo atingido", ft.Icons.ACCOUNT_BALANCE, "#3B82F6")
+    card_empresa = criar_card_metrica("Reembolsos Empresa (B2B)", "185,00 €", "⏳ 1 fatura pendente de aprovação", ft.Icons.BUSINESS_CENTER, "#8B5CF6")
 
-    card_saldo = criar_card(
-        "Patrimonio / Saldo Liquido",
-        "12.450,00 EUR",
-        "+8.4% este mes",
-        ft.Icons.ACCOUNT_BALANCE_WALLET,
-        "#10B981"
-    )
-
-    card_irs = criar_card(
-        "Retorno Estimado IRS",
-        "1.257,50 EUR",
-        "82% do teto maximo",
-        ft.Icons.ACCOUNT_BALANCE,
-        "#3B82F6"
-    )
-
-    card_despesas = criar_card(
-        "Gastos do Mes",
-        "1.120,40 EUR",
-        "12% abaixo do limite",
-        ft.Icons.TRENDING_DOWN,
-        "#EF4444"
-    )
-
-    # =========================================================
-    # LISTA DE DEDUCOES
-    # =========================================================
-
-    coluna_deducoes = ft.Column(
-        spacing=10
-    )
-
+    coluna_deducoes = ft.Column()
     for d in deducoes_irs:
-
-        percentagem = min(
-            d["atual"] / d["max"],
-            1.0
-        )
-
+        perc = min(d["atual"] / d["max"], 1.0)
         coluna_deducoes.controls.append(
             ft.Container(
-                bgcolor="#FFFFFF",
-                padding=16,
-                border_radius=12,
-                border=ft.Border.all(
-                    1,
-                    "#E2E8F0"
-                ),
-                content=ft.Column(
-                    [
-                        ft.Row(
-                            [
-                                ft.Text(
-                                    d["cat"],
-                                    size=14,
-                                    weight=ft.FontWeight.BOLD,
-                                    color="#0F172A",
-                                    expand=True
-                                ),
-                                ft.Text(
-                                    f'{d["atual"]:.2f} / {d["max"]:.2f} EUR',
-                                    size=13,
-                                    weight=ft.FontWeight.BOLD,
-                                    color=d["cor"]
-                                )
-                            ]
-                        ),
-                        ft.ProgressBar(
-                            value=percentagem,
-                            color=d["cor"],
-                            bgcolor="#F1F5F9",
-                            height=8
-                        ),
-                        ft.Text(
-                            d["dica"],
-                            size=12,
-                            color="#64748B"
-                        )
-                    ],
-                    spacing=8
-                )
+                bgcolor="#FFFFFF", padding=16, border_radius=12, border=ft.Border.all(1, "#E2E8F0"),
+                content=ft.Column([
+                    ft.Row([
+                        ft.Text(d["cat"], weight=ft.FontWeight.BOLD, size=14, color="#0F172A"),
+                        ft.Text(f"{d['atual']:.2f} € / {d['max']:.2f} €", weight=ft.FontWeight.BOLD, size=13, color=d["cor"])
+                    ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+                    ft.ProgressBar(value=perc, color=d["cor"], bgcolor="#F1F5F9", height=8),
+                    ft.Text(f"💡 {d['dica']}", size=12, color="#64748B", italic=True)
+                ])
             )
         )
 
-    # =========================================================
-    # DASHBOARD
-    # =========================================================
+    view_dashboard = ft.Column([
+        ft.Text("📊 Resumo Executivo & Otimização Fiscal", size=20, weight=ft.FontWeight.BOLD, color="#0F172A"),
+        ft.Row([card_saldo, card_irs, card_empresa]),
+        ft.Container(height=10),
+        ft.Text("🏛️ Otimizador do e-Fatura & Deduções IRS", size=18, weight=ft.FontWeight.BOLD, color="#0F172A"),
+        coluna_deducoes
+    ])
 
-    view_dashboard = ft.Column(
-        [
-            ft.Text(
-                "Resumo Executivo e Saude Financeira",
-                size=20,
-                weight=ft.FontWeight.BOLD,
-                color="#0F172A"
-            ),
+    # ---------------------------------------------------------
+    # ABA 2: SCANNER IA & REPOSITÓRIO INTELIGENTE
+    # ---------------------------------------------------------
+    coluna_faturas_list = ft.Column()
+    status_scan = ft.Text("", size=13, color="#10B981", weight=ft.FontWeight.BOLD)
 
-            ft.Row(
-                [
-                    card_saldo,
-                    card_irs,
-                    card_despesas
-                ],
-                spacing=10
-            ),
-
-            ft.Container(
-                height=10
-            ),
-
-            ft.Text(
-                "Otimizador do e-Fatura e Deducoes IRS",
-                size=18,
-                weight=ft.FontWeight.BOLD,
-                color="#0F172A"
-            ),
-
-            coluna_deducoes
-        ],
-        spacing=10
-    )
-
-    # =========================================================
-    # CAMPOS PARA NOVA FATURA
-    # =========================================================
-
-    txt_numero = ft.TextField(
-        label="Numero da Fatura",
-        border_color="#CBD5E1",
-        expand=True
-    )
-
-    txt_entidade = ft.TextField(
-        label="Empresa / Emitente",
-        border_color="#CBD5E1",
-        expand=True
-    )
-
-    txt_valor = ft.TextField(
-        label="Valor EUR",
-        border_color="#CBD5E1",
-        width=150
-    )
-
-    dropdown_categoria = ft.Dropdown(
-        label="Categoria",
-        border_color="#CBD5E1",
-        width=250,
-        value="Despesas Gerais",
-        options=[
-            ft.dropdown.Option(
-                d["cat"]
-            )
-            for d in deducoes_irs
-        ]
-    )
-
-    lista_faturas = ft.Column(
-        spacing=10
-    )
-
-    # =========================================================
-    # ATUALIZAR FATURAS
-    # =========================================================
-
-    def atualizar_faturas():
-
-        lista_faturas.controls.clear()
-
-        for fatura in faturas:
-
-            if fatura["pago"]:
-                cor_estado = "#10B981"
-                estado = "VALIDADA"
-            else:
-                cor_estado = "#EF4444"
-                estado = "PENDENTE"
-
-            lista_faturas.controls.append(
+    def atualizar_faturas_ui():
+        coluna_faturas_list.controls.clear()
+        for f in faturas:
+            status_cor = "#10B981" if f["pago"] else "#F59E0B"
+            status_txt = "VALIDADA" if f["pago"] else "EM ANÁLISE"
+            badge_b2b = "#8B5CF6" if f.get("tipo") == "Empresa" else "#3B82F6"
+            
+            coluna_faturas_list.controls.append(
                 ft.Container(
-                    bgcolor="#FFFFFF",
-                    padding=16,
-                    border_radius=12,
-                    border=ft.Border.all(
-                        1,
-                        "#E2E8F0"
-                    ),
-                    content=ft.Row(
-                        [
-                            ft.Container(
-                                content=ft.Icon(
-                                    ft.Icons.RECEIPT_LONG,
-                                    color="#3B82F6",
-                                    size=25
-                                ),
-                                bgcolor="#EFF6FF",
-                                padding=10,
-                                border_radius=10
-                            ),
-
-                            ft.Column(
-                                [
-                                    ft.Text(
-                                        f'{fatura["num"]} - {fatura["entidade"]}',
-                                        size=15,
-                                        weight=ft.FontWeight.BOLD,
-                                        color="#0F172A"
-                                    ),
-                                    ft.Text(
-                                        f'Categoria: {fatura["cat"]}',
-                                        size=12,
-                                        color="#64748B"
-                                    )
-                                ],
-                                expand=True,
-                                spacing=4
-                            ),
-
-                            ft.Text(
-                                f'{fatura["valor"]:.2f} EUR',
-                                size=16,
-                                weight=ft.FontWeight.BOLD,
-                                color="#0F172A"
-                            ),
-
-                            ft.Container(
-                                content=ft.Text(
-                                    estado,
-                                    size=10,
-                                    weight=ft.FontWeight.BOLD,
-                                    color="#FFFFFF"
-                                ),
-                                bgcolor=cor_estado,
-                                padding=7,
-                                border_radius=6
-                            )
-                        ],
-                        spacing=12
-                    )
+                    bgcolor="#FFFFFF", padding=16, border_radius=12, border=ft.Border.all(1, "#E2E8F0"),
+                    content=ft.Row([
+                        ft.Container(
+                            content=ft.Icon(ft.Icons.RECEIPT_LONG, color=badge_b2b, size=24),
+                            bgcolor="#F1F5F9", padding=10, border_radius=10
+                        ),
+                        ft.Column([
+                            ft.Row([
+                                ft.Text(f"{f['num']} — {f['entidade']}", weight=ft.FontWeight.BOLD, size=15, color="#0F172A"),
+                                ft.Container(content=ft.Text(f.get("tipo", "Pessoal"), size=10, color="white", weight=ft.FontWeight.BOLD), bgcolor=badge_b2b, padding=4, border_radius=4)
+                            ]),
+                            ft.Text(f"Categoria: {f['cat']}", size=12, color="#64748B")
+                        ], expand=True),
+                        ft.Text(f"{f['valor']:.2f} €", weight=ft.FontWeight.BOLD, size=16, color="#0F172A"),
+                        ft.Container(
+                            content=ft.Text(status_txt, size=10, weight=ft.FontWeight.BOLD, color="white"),
+                            bgcolor=status_cor, padding=6, border_radius=6
+                        )
+                    ])
                 )
             )
-
         page.update()
 
-    # =========================================================
-    # ADICIONAR FATURA
-    # =========================================================
+    def simular_scan_ia(e):
+        status_scan.value = "⚡ A processar documento com Inteligência Artificial..."
+        page.update()
+        
+        # Simulação de OCR instantâneo
+        faturas.append({
+            "num": f"FT 2026/{random.randint(120, 999)}",
+            "entidade": "Restaurante Executivo Lisboa",
+            "cat": "🚗 Restauração & Lazer",
+            "valor": round(random.uniform(25.0, 95.0), 2),
+            "pago": True,
+            "tipo": "Empresa"
+        })
+        status_scan.value = "✅ Fatura lida com sucesso! Categoria, NIF e IVA extraídos automaticamente."
+        atualizar_faturas_ui()
 
-    def adicionar_fatura(e):
+    view_scanner = ft.Column([
+        ft.Text("📷 Scanner Inteligente & Digitalização OCR", size=20, weight=ft.FontWeight.BOLD, color="#0F172A"),
+        ft.Container(
+            bgcolor="#FFFFFF", padding=24, border_radius=16, border=ft.Border.all(1, "#CBD5E1"),
+            content=ft.Column([
+                ft.Icon(ft.Icons.CLOUD_UPLOAD, size=48, color="#3B82F6"),
+                ft.Text("Arraste o PDF da Fatura ou Carregue uma Foto do Recibo", size=15, weight=ft.FontWeight.BOLD, color="#0F172A"),
+                ft.Text("A nossa IA extrai automaticamente os dados para o e-Fatura e para a contabilidade.", size=12, color="#64748B"),
+                ft.ElevatedButton("Simular Leitura de Fatura por IA", icon=ft.Icons.AUTO_AWESOME, bgcolor="#3B82F6", color="white", on_click=simular_scan_ia),
+                status_scan
+            ], horizontal_alignment=ft.CrossAxisAlignment.CENTER)
+        ),
+        ft.Container(height=10),
+        ft.Text("📑 Faturas Processadas", size=18, weight=ft.FontWeight.BOLD, color="#0F172A"),
+        coluna_faturas_list
+    ])
 
-        if not txt_numero.value:
-            txt_numero.error_text = "Preencha o numero da fatura."
-            page.update()
-            return
+    # ---------------------------------------------------------
+    # ABA 3: MÓDULO EMPRESARIAL B2B & RELATÓRIOS
+    # ---------------------------------------------------------
+    txt_notificacao_export = ft.Text("", size=13, color="#10B981", weight=ft.FontWeight.BOLD)
 
-        if not txt_valor.value:
-            txt_valor.error_text = "Preencha o valor."
-            page.update()
-            return
+    def exportar_relatorio(e):
+        txt_notificacao_export.value = "📄 Relatório PDF/Excel gerado e enviado com sucesso para o Contabilista!"
+        page.update()
 
-        try:
-
-            valor = float(
-                txt_valor.value.replace(
-                    ",",
-                    "."
-                )
-            )
-
-            faturas.append(
-                {
-                    "num": txt_numero.value,
-                    "entidade": (
-                        txt_entidade.value
-                        or "Fornecedor"
-                    ),
-                    "cat": (
-                        dropdown_categoria.value
-                        or "Despesas Gerais"
-                    ),
-                    "valor": valor,
-                    "pago": True
-                }
-            )
-
-            txt_numero.value = ""
-            txt_entidade.value = ""
-            txt_valor.value = ""
-
-            txt_numero.error_text = None
-            txt_valor.error_text = None
-
-            atualizar_faturas()
-
-        except ValueError:
-
-            txt_valor.error_text = (
-                "Introduza um valor valido."
-            )
-
-            page.update()
-
-    # =========================================================
-    # VIEW DAS FATURAS
-    # =========================================================
-
-    view_faturas = ft.Column(
-        [
-            ft.Text(
-                "Repositorio Inteligente de Faturas",
-                size=20,
-                weight=ft.FontWeight.BOLD,
-                color="#0F172A"
-            ),
-
-            ft.Container(
-                bgcolor="#FFFFFF",
-                padding=20,
-                border_radius=16,
-                border=ft.Border.all(
-                    1,
-                    "#E2E8F0"
-                ),
-                content=ft.Column(
-                    [
-                        ft.Text(
-                            "Registar Nova Fatura",
-                            size=15,
-                            weight=ft.FontWeight.BOLD,
-                            color="#0F172A"
-                        ),
-
-                        ft.Row(
-                            [
-                                txt_numero,
-                                txt_entidade
-                            ],
-                            spacing=10
-                        ),
-
-                        ft.Row(
-                            [
-                                txt_valor,
-                                dropdown_categoria
-                            ],
-                            spacing=10
-                        ),
-
-                        ft.ElevatedButton(
-                            "Guardar Fatura",
-                            icon=ft.Icons.SAVE,
-                            bgcolor="#3B82F6",
-                            color="#FFFFFF",
-                            on_click=adicionar_fatura
-                        )
-                    ],
-                    spacing=15
-                )
-            ),
-
-            ft.Container(
-                height=10
-            ),
-
-            lista_faturas
-        ],
-        spacing=10
-    )
-
-    # =========================================================
-    # LISTA DE METAS
-    # =========================================================
-
-    lista_metas = ft.Column(
-        spacing=10
-    )
-
-    for meta in metas_poupanca:
-
-        progresso = min(
-            meta["atual"] / meta["meta"],
-            1.0
+    view_b2b = ft.Column([
+        ft.Text("🏢 Módulo B2B & Ligação à Contabilidade", size=20, weight=ft.FontWeight.BOLD, color="#0F172A"),
+        ft.Text("Solução integrada para empresas, trabalhadores independentes e gabinetes de contabilidade.", size=13, color="#64748B"),
+        ft.Container(height=10),
+        ft.Container(
+            bgcolor="#FFFFFF", padding=20, border_radius=16, border=ft.Border.all(1, "#E2E8F0"),
+            content=ft.Column([
+                ft.Text("📤 Exportação Pronta para Contabilista (SAF-T / Excel / PDF)", weight=ft.FontWeight.BOLD, size=16, color="#0F172A"),
+                ft.Text("Gerador automático de relatórios mensais de despesas de representação e ajudas de custo.", size=12, color="#64748B"),
+                ft.Row([
+                    ft.ElevatedButton("Exportar Relatório Mensal", icon=ft.Icons.PICTURE_AS_PDF, bgcolor="#8B5CF6", color="white", on_click=exportar_relatorio),
+                    ft.OutlinedButton("Sincronizar com e-Fatura (AT)", icon=ft.Icons.SYNC, border_color="#8B5CF6")
+                ]),
+                txt_notificacao_export
+            ])
+        ),
+        ft.Container(height=10),
+        ft.Container(
+            bgcolor="#EFF6FF", padding=20, border_radius=16, border=ft.Border.all(1, "#BFDBFE"),
+            content=ft.Column([
+                ft.Text("💼 Por que as Empresas Compram a AURA 360?", weight=ft.FontWeight.BOLD, size=15, color="#1E40AF"),
+                ft.Text("• Redução de 80% no tempo manual de validação de despesas dos colaboradores.", size=13, color="#1E3A8A"),
+                ft.Text("• Conformidade fiscal garantida sem erros de classificação no e-Fatura.", size=13, color="#1E3A8A"),
+                ft.Text("• Integração simples via API com software de gestão e faturação.", size=13, color="#1E3A8A"),
+            ])
         )
+    ])
 
-        lista_metas.controls.append(
-            ft.Container(
-                bgcolor="#FFFFFF",
-                padding=16,
-                border_radius=12,
-                border=ft.Border.all(
-                    1,
-                    "#E2E8F0"
-                ),
-                content=ft.Column(
-                    [
-                        ft.Row(
-                            [
-                                ft.Text(
-                                    meta["nome"],
-                                    size=15,
-                                    weight=ft.FontWeight.BOLD,
-                                    color="#0F172A",
-                                    expand=True
-                                ),
-
-                                ft.Text(
-                                    f'{meta["atual"]} / {meta["meta"]} EUR',
-                                    size=13,
-                                    weight=ft.FontWeight.BOLD,
-                                    color=meta["cor"]
-                                )
-                            ]
-                        ),
-
-                        ft.ProgressBar(
-                            value=progresso,
-                            color=meta["cor"],
-                            bgcolor="#F1F5F9",
-                            height=10
-                        ),
-
-                        ft.Text(
-                            f'{progresso * 100:.0f}% concluido',
-                            size=12,
-                            color="#64748B"
-                        )
-                    ],
-                    spacing=8
-                )
-            )
-        )
-
-    # =========================================================
-    # VIEW DAS METAS
-    # =========================================================
-
-    view_metas = ft.Column(
-        [
-            ft.Text(
-                "Objetivos e Liberdade Financeira",
-                size=20,
-                weight=ft.FontWeight.BOLD,
-                color="#0F172A"
-            ),
-
-            ft.Text(
-                "Acompanhe as suas metas de poupanca e investimento.",
-                size=13,
-                color="#64748B"
-            ),
-
-            ft.Container(
-                height=10
-            ),
-
-            lista_metas
-        ],
-        spacing=10
-    )
-
-    # =========================================================
-    # CABECALHO
-    # =========================================================
-
+    # ---------------------------------------------------------
+    # CABEÇALHO & NAVEGAÇÃO
+    # ---------------------------------------------------------
     frases = [
-        "O controlo financeiro de hoje constroi a liberdade de amanha.",
-        "Saber onde esta o seu dinheiro e o primeiro passo para o multiplicar.",
-        "Pequenas otimizacoes geram grandes resultados."
+        "✨ «O controlo financeiro de hoje constrói a liberdade de amanhã.»",
+        "💎 «Saber exatamente onde está o seu dinheiro é o primeiro passo para o multiplicar.»",
+        "⚡ «Pequenas otimizações no IRS geram grandes retornos no final do ano.»"
     ]
 
     header = ft.Container(
-        bgcolor="#0F172A",
-        padding=24,
-        border_radius=20,
-        content=ft.Row(
-            [
-                ft.Column(
-                    [
-                        ft.Row(
-                            [
-                                ft.Icon(
-                                    ft.Icons.DIAMOND,
-                                    color="#38BDF8",
-                                    size=28
-                                ),
-
-                                ft.Text(
-                                    "AURA 360",
-                                    size=24,
-                                    weight=ft.FontWeight.BOLD,
-                                    color="#FFFFFF"
-                                )
-                            ]
-                        ),
-
-                        ft.Text(
-                            random.choice(frases),
-                            size=13,
-                            color="#94A3B8",
-                            italic=True
-                        )
-                    ],
-                    expand=True
-                ),
-
-                ft.Container(
-                    bgcolor="#1E293B",
-                    padding=10,
-                    border_radius=12,
-                    content=ft.Row(
-                        [
-                            ft.Icon(
-                                ft.Icons.VERIFIED_USER,
-                                color="#10B981",
-                                size=18
-                            ),
-
-                            ft.Text(
-                                "Perfil Verificado",
-                                color="#FFFFFF",
-                                size=12,
-                                weight=ft.FontWeight.BOLD
-                            )
-                        ],
-                        spacing=6
-                    )
-                )
-            ],
-            alignment=ft.MainAxisAlignment.SPACE_BETWEEN
-        )
+        bgcolor="#0F172A", padding=24, border_radius=20,
+        content=ft.Row([
+            ft.Column([
+                ft.Row([
+                    ft.Icon(ft.Icons.DIAMOND, color="#38BDF8", size=28),
+                    ft.Text("AURA 360", size=24, weight=ft.FontWeight.BOLD, color="white"),
+                ]),
+                ft.Text(random.choice(frases), size=13, color="#94A3B8", italic=True)
+            ], expand=True),
+            ft.Container(
+                content=ft.Row([
+                    ft.Icon(ft.Icons.VERIFIED_USER, color="#10B981", size=18),
+                    ft.Text("Plano Pro / B2B", color="white", size=12, weight=ft.FontWeight.BOLD)
+                ]),
+                bgcolor="#1E293B", padding=10, border_radius=12
+            )
+        ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN)
     )
 
-    # =========================================================
-    # AREA DE CONTEUDO
-    # =========================================================
+    area_conteudo = ft.Container(content=view_dashboard, expand=True, padding=ft.Padding.only(top=10))
 
-    area_conteudo = ft.Container(
-        content=view_dashboard,
-        expand=True,
-        padding=10
-    )
-
-    # =========================================================
-    # MUDAR DE ABA
-    # =========================================================
-
-    def mudar_aba(e):
-
-        indice = int(
-            e.control.data
-        )
-
-        views = [
-            view_dashboard,
-            view_faturas,
-            view_metas
-        ]
-
-        area_conteudo.content = views[indice]
-
+    def mudar_tab(e):
+        idx = int(e.control.data)
+        views = [view_dashboard, view_scanner, view_b2b]
+        area_conteudo.content = views[idx]
         page.update()
 
-    # =========================================================
-    # MENU DE NAVEGACAO
-    # =========================================================
+    nav_bar = ft.Row([
+        ft.ElevatedButton("📊 Otimização IRS 360", data=0, on_click=mudar_tab, bgcolor="#0F172A", color="white"),
+        ft.ElevatedButton("📷 Scanner IA de Faturas", data=1, on_click=mudar_tab, bgcolor="#3B82F6", color="white"),
+        ft.ElevatedButton("🏢 Módulo B2B / Empresas", data=2, on_click=mudar_tab, bgcolor="#8B5CF6", color="white"),
+    ], scroll=ft.ScrollMode.AUTO)
 
-    menu = ft.Row(
-        [
-            ft.ElevatedButton(
-                "Dashboard 360",
-                data=0,
-                bgcolor="#0F172A",
-                color="#FFFFFF",
-                on_click=mudar_aba
-            ),
-
-            ft.ElevatedButton(
-                "e-Fatura e Recibos",
-                data=1,
-                bgcolor="#3B82F6",
-                color="#FFFFFF",
-                on_click=mudar_aba
-            ),
-
-            ft.ElevatedButton(
-                "Metas e Poupanca",
-                data=2,
-                bgcolor="#10B981",
-                color="#FFFFFF",
-                on_click=mudar_aba
-            )
-        ],
-        scroll=ft.ScrollMode.AUTO,
-        spacing=10
-    )
-
-    # =========================================================
     # MONTAGEM FINAL
-    # =========================================================
-
     page.add(
         header,
-        ft.Container(
-            height=5
-        ),
-        menu,
-        ft.Divider(
-            color="#E2E8F0"
-        ),
+        ft.Container(height=5),
+        nav_bar,
+        ft.Divider(color="#E2E8F0"),
         area_conteudo
     )
 
-    # =========================================================
-    # CARREGAR FATURAS
-    # =========================================================
-
-    atualizar_faturas()
-
-
-# =============================================================
-# INICIAR A APLICACAO
-# =============================================================
+    atualizar_faturas_ui()
 
 if __name__ == "__main__":
-
-    port = int(
-        os.environ.get(
-            "PORT",
-            8080
-        )
-    )
-
-    ft.app(
-        target=main,
-        port=port,
-        view=ft.AppView.WEB_BROWSER
-    )
+    port = int(os.environ.get("PORT", 8080))
+    ft.app(target=main, port=port, view=ft.AppView.WEB_BROWSER)
