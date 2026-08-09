@@ -84,7 +84,7 @@ def main(page: ft.Page):
     ]
     lbl_frase = ft.Text(random.choice(frases_motivacionais), italic=True, size=14, color="#0052CC", weight=ft.FontWeight.BOLD)
 
-    # UPLOADER DE FOTOS (Ajustado para novas versões do Flet)
+    # UPLOADER DE FOTOS
     img_preview = ft.Image(src="", width=150, height=150, fit="cover", visible=False, border_radius=8)
     lbl_status_foto = ft.Text("Nenhuma foto anexa", size=12, italic=True, color="#7A869A")
 
@@ -154,7 +154,7 @@ def main(page: ft.Page):
                                 bgcolor="#FFF8E1",
                                 padding=10,
                                 border_radius=6,
-                                border=ft.border.all(1, "#FFE082")
+                                border=ft.Border.all(width=1, color="#FFE082")
                             ),
                             ft.Row([
                                 txt_input,
@@ -237,7 +237,7 @@ def main(page: ft.Page):
             padding=15,
             bgcolor="#FFF3E0",
             border_radius=10,
-            border=ft.border.all(2, "#FFE0B2")
+            border=ft.Border.all(width=2, color="#FFE0B2")
         ),
         ft.Divider(),
         lista_agenda_ui
@@ -293,7 +293,7 @@ def main(page: ft.Page):
             padding=15,
             bgcolor="#F3E5F5",
             border_radius=10,
-            border=ft.border.all(2, "#E1BEE7")
+            border=ft.Border.all(width=2, color="#E1BEE7")
         ),
         ft.Divider(),
         lista_notas_ui
@@ -446,7 +446,7 @@ def main(page: ft.Page):
             padding=15,
             bgcolor="#E3F2FD",
             border_radius=10,
-            border=ft.border.all(2, "#90CAF9")
+            border=ft.Border.all(width=2, color="#90CAF9")
         ),
         ft.Divider(),
         lista_faturas_ui
@@ -527,7 +527,7 @@ def main(page: ft.Page):
         padding=16,
         bgcolor="#FFFFFF",
         border_radius=12,
-        border=ft.border.all(2, "#FFAB00")
+        border=ft.Border.all(width=2, color="#FFAB00")
     )
 
     # =========================================================
