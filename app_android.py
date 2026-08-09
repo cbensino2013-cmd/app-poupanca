@@ -28,15 +28,6 @@ def main(page: ft.Page):
         {"nome": "Segurança Social (TSU)", "tipo": "Empresa", "mes": "Mensal (Dia 20)", "estado": "Pendente"},
     ]
 
-    # File Picker Genérico
-    def file_picker_result(e):
-        if e.files:
-            page.show_snack_bar(ft.SnackBar(ft.Text("Ficheiro / Print Anexado com Sucesso!")))
-
-    file_picker = ft.FilePicker()
-    file_picker.on_result = file_picker_result
-    page.overlay.append(file_picker)
-
     # =========================================================
     # 🟢 PERFIL PARTICULAR
     # =========================================================
@@ -100,13 +91,9 @@ def main(page: ft.Page):
         ft.Text("👤 Perfil Particular (Gestão Doméstica)", size=20, weight=ft.FontWeight.BOLD, color=ft.Colors.CYAN_300),
         alerta_p,
         ft.Row([txt_rendimento_p, txt_meta_p]),
-        ft.OutlinedButton("📱 Carregar Print do Saldo Bancário", icon=ft.Icons.IMAGE, on_click=lambda e: file_picker.pick_files()),
         ft.Card(content=ft.Container(content=ft.Column([ft.Row([luz_p, lbl_luz_p]), lbl_diag_p]), padding=12)),
         ft.Row([txt_nome_p, txt_valor_p, dd_cat_p]),
-        ft.Row([
-            ft.ElevatedButton("Adicionar Gastos", icon=ft.Icons.ADD, on_click=add_despesa_p),
-            ft.OutlinedButton("📷 Anexar Recibo", icon=ft.Icons.CAMERA_ALT, on_click=lambda e: file_picker.pick_files())
-        ]),
+        ft.ElevatedButton("Adicionar Gastos", icon=ft.Icons.ADD, on_click=add_despesa_p),
         ft.Divider(),
         ft.Row([lbl_tot_gastos_p, lbl_saldo_p], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
         lista_desp_p
