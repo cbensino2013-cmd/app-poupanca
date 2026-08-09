@@ -134,9 +134,11 @@ def main(page: ft.Page):
 
             grid_irs_ui.controls.append(
                 ft.Card(
-                    color="#FFFFFF",
                     elevation=3,
                     content=ft.Container(
+                        bgcolor="#FFFFFF",
+                        border_radius=8,
+                        padding=15,
                         content=ft.Column([
                             ft.Row([
                                 ft.Icon(ft.Icons.RECEIPT_LONG, color=item["cor"], size=28),
@@ -160,8 +162,7 @@ def main(page: ft.Page):
                                 txt_input,
                                 ft.Text("🟢 Validado na Autoridade Tributária", color="#00875A", size=12, weight=ft.FontWeight.BOLD)
                             ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN)
-                        ]),
-                        padding=15
+                        ])
                     )
                 )
             )
@@ -204,9 +205,11 @@ def main(page: ft.Page):
             cor_prio = "#DE350B" if ev["prioridade"] == "Urgente" else ("#FF9800" if ev["prioridade"] == "Alta" else "#00875A")
             lista_agenda_ui.controls.append(
                 ft.Card(
-                    color="#FFFFFF",
                     elevation=2,
                     content=ft.Container(
+                        bgcolor="#FFFFFF",
+                        border_radius=8,
+                        padding=12,
                         content=ft.Row([
                             ft.Icon(ft.Icons.CALENDAR_TODAY, color="#FF9800", size=32),
                             ft.Column([
@@ -219,7 +222,7 @@ def main(page: ft.Page):
                                 padding=6,
                                 border_radius=5
                             )
-                        ]), padding=12
+                        ])
                     )
                 )
             )
@@ -247,7 +250,6 @@ def main(page: ft.Page):
     # 📝 NOTAS & LEMBRETES
     # =========================================================
     txt_nota_titulo = ft.TextField(label="Título da Nota", expand=True, border_color="#9C27B0")
-    # 🟢 Corrigido: 'rows=3' alterado para 'max_lines=3'
     txt_nota_texto = ft.TextField(label="Conteúdo / Apontamento", multiline=True, max_lines=3, expand=True, border_color="#9C27B0")
     lista_notas_ui = ft.Column()
 
@@ -266,9 +268,11 @@ def main(page: ft.Page):
         for n in notas_lista:
             lista_notas_ui.controls.append(
                 ft.Card(
-                    color="#FFFFFF",
                     elevation=2,
                     content=ft.Container(
+                        bgcolor="#FFFFFF",
+                        border_radius=8,
+                        padding=12,
                         content=ft.Column([
                             ft.Row([
                                 ft.Icon(ft.Icons.NOTE_ALT, color="#9C27B0"),
@@ -276,7 +280,7 @@ def main(page: ft.Page):
                                 ft.IconButton(icon=ft.Icons.DELETE_OUTLINE, icon_color="#DE350B", on_click=lambda e, nota=n: remover_nota(nota))
                             ]),
                             ft.Text(n["texto"], size=14, color="#424242")
-                        ]), padding=12
+                        ])
                     )
                 )
             )
@@ -343,13 +347,15 @@ def main(page: ft.Page):
     perfil_empresa = ft.Column([
         ft.Text("🏢 Gestão Corporativa & CRM", size=20, weight=ft.FontWeight.BOLD, color="#172B4D"),
         ft.Card(
-            color="#FFFFFF",
             content=ft.Container(
+                bgcolor="#FFFFFF",
+                border_radius=8,
+                padding=15,
                 content=ft.Column([
                     ft.Text("📊 Balanço & Previsão Financeira", size=16, weight=ft.FontWeight.BOLD, color="#FF5630"),
                     ft.Row([txt_emp_fat, txt_emp_gastos]),
                     lbl_emp_lucro
-                ]), padding=15
+                ])
             )
         ),
         ft.Text("👥 Carteira de Clientes", size=16, weight=ft.FontWeight.BOLD, color="#172B4D"),
@@ -404,9 +410,11 @@ def main(page: ft.Page):
 
             lista_faturas_ui.controls.append(
                 ft.Card(
-                    color="#FFFFFF",
                     elevation=3,
                     content=ft.Container(
+                        bgcolor="#FFFFFF",
+                        border_radius=8,
+                        padding=12,
                         content=ft.Row([
                             foto_widget,
                             ft.Column([
@@ -419,7 +427,7 @@ def main(page: ft.Page):
                                 style=ft.ButtonStyle(color=status_color),
                                 on_click=lambda e, fat=f: alternar_pago_fatura(fat)
                             )
-                        ]), padding=12
+                        ])
                     )
                 )
             )
@@ -506,7 +514,14 @@ def main(page: ft.Page):
 
     perfil_particular = ft.Column([
         ft.Text("👤 Perfil Particular (Orçamento)", size=20, weight=ft.FontWeight.BOLD, color="#0052CC"),
-        ft.Card(color="#FFFFFF", content=ft.Container(content=ft.Column([ft.Row([txt_rendimento_p, txt_meta_p]), lbl_status_p]), padding=15)),
+        ft.Card(
+            content=ft.Container(
+                bgcolor="#FFFFFF",
+                border_radius=8,
+                padding=15,
+                content=ft.Column([ft.Row([txt_rendimento_p, txt_meta_p]), lbl_status_p])
+            )
+        ),
         ft.Row([txt_nome_p, txt_valor_p, dd_cat_p]),
         ft.ElevatedButton("Registar Despesa", icon=ft.Icons.REMOVE_CIRCLE_OUTLINE, bgcolor="#DE350B", color="white", on_click=add_despesa_p),
         ft.Divider(),
