@@ -129,7 +129,6 @@ def main(page: ft.Page):
         status_scan.value = "⚡ A processar documento com Inteligência Artificial..."
         page.update()
         
-        # Simulação de OCR instantâneo
         faturas.append({
             "num": f"FT 2026/{random.randint(120, 999)}",
             "entidade": "Restaurante Executivo Lisboa",
@@ -178,7 +177,12 @@ def main(page: ft.Page):
                 ft.Text("Gerador automático de relatórios mensais de despesas de representação e ajudas de custo.", size=12, color="#64748B"),
                 ft.Row([
                     ft.ElevatedButton("Exportar Relatório Mensal", icon=ft.Icons.PICTURE_AS_PDF, bgcolor="#8B5CF6", color="white", on_click=exportar_relatorio),
-                    ft.OutlinedButton("Sincronizar com e-Fatura (AT)", icon=ft.Icons.SYNC, border_color="#8B5CF6")
+                    # CORREÇÃO AQUI: Estilização do OutlinedButton usando ButtonStyle e BorderSide
+                    ft.OutlinedButton(
+                        "Sincronizar com e-Fatura (AT)", 
+                        icon=ft.Icons.SYNC, 
+                        style=ft.ButtonStyle(side=ft.BorderSide(1, "#8B5CF6"), color="#8B5CF6")
+                    )
                 ]),
                 txt_notificacao_export
             ])
