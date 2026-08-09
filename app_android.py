@@ -4,18 +4,20 @@ import random
 
 
 def main(page: ft.Page):
-    # ---------------------------------------------------------
-    # CONFIGURACOES DA PAGINA
-    # ---------------------------------------------------------
+    # =========================================================
+    # CONFIGURACAO DA PAGINA
+    # =========================================================
+
     page.title = "AURA 360 | Gestao Financeira & Patrimonio"
     page.theme_mode = ft.ThemeMode.LIGHT
     page.bgcolor = "#F8FAFC"
     page.padding = 20
     page.scroll = ft.ScrollMode.AUTO
 
-    # ---------------------------------------------------------
-    # DADOS
-    # ---------------------------------------------------------
+    # =========================================================
+    # DADOS DAS FATURAS
+    # =========================================================
+
     faturas = [
         {
             "num": "FT 2026/089",
@@ -39,6 +41,10 @@ def main(page: ft.Page):
             "pago": False
         }
     ]
+
+    # =========================================================
+    # DEDUCOES IRS
+    # =========================================================
 
     deducoes_irs = [
         {
@@ -78,6 +84,10 @@ def main(page: ft.Page):
         }
     ]
 
+    # =========================================================
+    # METAS DE POUPANCA
+    # =========================================================
+
     metas_poupanca = [
         {
             "nome": "Fundo de Emergencia",
@@ -99,19 +109,25 @@ def main(page: ft.Page):
         }
     ]
 
-    # ---------------------------------------------------------
-    # CARD DE METRICA
-    # ---------------------------------------------------------
-    def criar_card(titulo, valor, texto, icone, cor):
+    # =========================================================
+    # FUNCAO PARA CRIAR CARDS
+    # =========================================================
+
+    def criar_card(
+        titulo,
+        valor,
+        texto,
+        icone,
+        cor
+    ):
         return ft.Container(
             expand=True,
             bgcolor="#FFFFFF",
             padding=20,
             border_radius=16,
-            border=ft.Border.all(1, "#E2E8F0"),
-            shadow=ft.BoxShadow(
-                blur_radius=10,
-                color="#20000000"
+            border=ft.Border.all(
+                1,
+                "#E2E8F0"
             ),
             content=ft.Column(
                 [
@@ -152,9 +168,10 @@ def main(page: ft.Page):
             )
         )
 
-    # ---------------------------------------------------------
-    # CARDS PRINCIPAIS
-    # ---------------------------------------------------------
+    # =========================================================
+    # CARDS DO DASHBOARD
+    # =========================================================
+
     card_saldo = criar_card(
         "Patrimonio / Saldo Liquido",
         "12.450,00 EUR",
@@ -179,12 +196,16 @@ def main(page: ft.Page):
         "#EF4444"
     )
 
-    # ---------------------------------------------------------
-    # DEDUCOES IRS
-    # ---------------------------------------------------------
-    coluna_deducoes = ft.Column(spacing=10)
+    # =========================================================
+    # LISTA DE DEDUCOES
+    # =========================================================
+
+    coluna_deducoes = ft.Column(
+        spacing=10
+    )
 
     for d in deducoes_irs:
+
         percentagem = min(
             d["atual"] / d["max"],
             1.0
@@ -235,9 +256,10 @@ def main(page: ft.Page):
             )
         )
 
-    # ---------------------------------------------------------
+    # =========================================================
     # DASHBOARD
-    # ---------------------------------------------------------
+    # =========================================================
+
     view_dashboard = ft.Column(
         [
             ft.Text(
@@ -246,6 +268,7 @@ def main(page: ft.Page):
                 weight=ft.FontWeight.BOLD,
                 color="#0F172A"
             ),
+
             ft.Row(
                 [
                     card_saldo,
@@ -254,21 +277,27 @@ def main(page: ft.Page):
                 ],
                 spacing=10
             ),
-            ft.Container(height=10),
+
+            ft.Container(
+                height=10
+            ),
+
             ft.Text(
                 "Otimizador do e-Fatura e Deducoes IRS",
                 size=18,
                 weight=ft.FontWeight.BOLD,
                 color="#0F172A"
             ),
+
             coluna_deducoes
         ],
         spacing=10
     )
 
-    # ---------------------------------------------------------
-    # CAMPOS DAS FATURAS
-    # ---------------------------------------------------------
+    # =========================================================
+    # CAMPOS PARA NOVA FATURA
+    # =========================================================
+
     txt_numero = ft.TextField(
         label="Numero da Fatura",
         border_color="#CBD5E1",
@@ -293,7 +322,7 @@ def main(page: ft.Page):
         width=250,
         value="Despesas Gerais",
         options=[
-            ft.DropdownOption(
+            ft.dropdown.Option(
                 d["cat"]
             )
             for d in deducoes_irs
@@ -304,18 +333,21 @@ def main(page: ft.Page):
         spacing=10
     )
 
-    # ---------------------------------------------------------
-    # ATUALIZAR LISTA DE FATURAS
-    # ---------------------------------------------------------
+    # =========================================================
+    # ATUALIZAR FATURAS
+    # =========================================================
+
     def atualizar_faturas():
+
         lista_faturas.controls.clear()
 
         for fatura in faturas:
+
             if fatura["pago"]:
-                cor = "#10B981"
+                cor_estado = "#10B981"
                 estado = "VALIDADA"
             else:
-                cor = "#EF4444"
+                cor_estado = "#EF4444"
                 estado = "PENDENTE"
 
             lista_faturas.controls.append(
@@ -329,11 +361,17 @@ def main(page: ft.Page):
                     ),
                     content=ft.Row(
                         [
-                            ft.Icon(
-                                ft.Icons.RECEIPT_LONG,
-                                color="#3B82F6",
-                                size=25
+                            ft.Container(
+                                content=ft.Icon(
+                                    ft.Icons.RECEIPT_LONG,
+                                    color="#3B82F6",
+                                    size=25
+                                ),
+                                bgcolor="#EFF6FF",
+                                padding=10,
+                                border_radius=10
                             ),
+
                             ft.Column(
                                 [
                                     ft.Text(
@@ -348,14 +386,17 @@ def main(page: ft.Page):
                                         color="#64748B"
                                     )
                                 ],
-                                expand=True
+                                expand=True,
+                                spacing=4
                             ),
+
                             ft.Text(
                                 f'{fatura["valor"]:.2f} EUR',
                                 size=16,
                                 weight=ft.FontWeight.BOLD,
                                 color="#0F172A"
                             ),
+
                             ft.Container(
                                 content=ft.Text(
                                     estado,
@@ -363,7 +404,7 @@ def main(page: ft.Page):
                                     weight=ft.FontWeight.BOLD,
                                     color="#FFFFFF"
                                 ),
-                                bgcolor=cor,
+                                bgcolor=cor_estado,
                                 padding=7,
                                 border_radius=6
                             )
@@ -375,19 +416,29 @@ def main(page: ft.Page):
 
         page.update()
 
-    # ---------------------------------------------------------
+    # =========================================================
     # ADICIONAR FATURA
-    # ---------------------------------------------------------
+    # =========================================================
+
     def adicionar_fatura(e):
+
         if not txt_numero.value:
+            txt_numero.error_text = "Preencha o numero da fatura."
+            page.update()
             return
 
         if not txt_valor.value:
+            txt_valor.error_text = "Preencha o valor."
+            page.update()
             return
 
         try:
+
             valor = float(
-                txt_valor.value.replace(",", ".")
+                txt_valor.value.replace(
+                    ",",
+                    "."
+                )
             )
 
             faturas.append(
@@ -410,17 +461,23 @@ def main(page: ft.Page):
             txt_entidade.value = ""
             txt_valor.value = ""
 
+            txt_numero.error_text = None
+            txt_valor.error_text = None
+
             atualizar_faturas()
 
         except ValueError:
+
             txt_valor.error_text = (
-                "Introduza um valor valido"
+                "Introduza um valor valido."
             )
+
             page.update()
 
-    # ---------------------------------------------------------
-    # VIEW FATURAS
-    # ---------------------------------------------------------
+    # =========================================================
+    # VIEW DAS FATURAS
+    # =========================================================
+
     view_faturas = ft.Column(
         [
             ft.Text(
@@ -429,6 +486,7 @@ def main(page: ft.Page):
                 weight=ft.FontWeight.BOLD,
                 color="#0F172A"
             ),
+
             ft.Container(
                 bgcolor="#FFFFFF",
                 padding=20,
@@ -445,6 +503,7 @@ def main(page: ft.Page):
                             weight=ft.FontWeight.BOLD,
                             color="#0F172A"
                         ),
+
                         ft.Row(
                             [
                                 txt_numero,
@@ -452,6 +511,7 @@ def main(page: ft.Page):
                             ],
                             spacing=10
                         ),
+
                         ft.Row(
                             [
                                 txt_valor,
@@ -459,6 +519,7 @@ def main(page: ft.Page):
                             ],
                             spacing=10
                         ),
+
                         ft.ElevatedButton(
                             "Guardar Fatura",
                             icon=ft.Icons.SAVE,
@@ -470,20 +531,26 @@ def main(page: ft.Page):
                     spacing=15
                 )
             ),
-            ft.Container(height=10),
+
+            ft.Container(
+                height=10
+            ),
+
             lista_faturas
         ],
         spacing=10
     )
 
-    # ---------------------------------------------------------
-    # METAS DE POUPANCA
-    # ---------------------------------------------------------
+    # =========================================================
+    # LISTA DE METAS
+    # =========================================================
+
     lista_metas = ft.Column(
         spacing=10
     )
 
     for meta in metas_poupanca:
+
         progresso = min(
             meta["atual"] / meta["meta"],
             1.0
@@ -509,6 +576,7 @@ def main(page: ft.Page):
                                     color="#0F172A",
                                     expand=True
                                 ),
+
                                 ft.Text(
                                     f'{meta["atual"]} / {meta["meta"]} EUR',
                                     size=13,
@@ -517,12 +585,14 @@ def main(page: ft.Page):
                                 )
                             ]
                         ),
+
                         ft.ProgressBar(
                             value=progresso,
                             color=meta["cor"],
                             bgcolor="#F1F5F9",
                             height=10
                         ),
+
                         ft.Text(
                             f'{progresso * 100:.0f}% concluido',
                             size=12,
@@ -534,9 +604,10 @@ def main(page: ft.Page):
             )
         )
 
-    # ---------------------------------------------------------
-    # VIEW METAS
-    # ---------------------------------------------------------
+    # =========================================================
+    # VIEW DAS METAS
+    # =========================================================
+
     view_metas = ft.Column(
         [
             ft.Text(
@@ -545,20 +616,26 @@ def main(page: ft.Page):
                 weight=ft.FontWeight.BOLD,
                 color="#0F172A"
             ),
+
             ft.Text(
                 "Acompanhe as suas metas de poupanca e investimento.",
                 size=13,
                 color="#64748B"
             ),
-            ft.Container(height=10),
+
+            ft.Container(
+                height=10
+            ),
+
             lista_metas
         ],
         spacing=10
     )
 
-    # ---------------------------------------------------------
+    # =========================================================
     # CABECALHO
-    # ---------------------------------------------------------
+    # =========================================================
+
     frases = [
         "O controlo financeiro de hoje constroi a liberdade de amanha.",
         "Saber onde esta o seu dinheiro e o primeiro passo para o multiplicar.",
@@ -580,6 +657,7 @@ def main(page: ft.Page):
                                     color="#38BDF8",
                                     size=28
                                 ),
+
                                 ft.Text(
                                     "AURA 360",
                                     size=24,
@@ -588,6 +666,7 @@ def main(page: ft.Page):
                                 )
                             ]
                         ),
+
                         ft.Text(
                             random.choice(frases),
                             size=13,
@@ -597,6 +676,7 @@ def main(page: ft.Page):
                     ],
                     expand=True
                 ),
+
                 ft.Container(
                     bgcolor="#1E293B",
                     padding=10,
@@ -608,6 +688,7 @@ def main(page: ft.Page):
                                 color="#10B981",
                                 size=18
                             ),
+
                             ft.Text(
                                 "Perfil Verificado",
                                 color="#FFFFFF",
@@ -623,20 +704,25 @@ def main(page: ft.Page):
         )
     )
 
-    # ---------------------------------------------------------
+    # =========================================================
     # AREA DE CONTEUDO
-    # ---------------------------------------------------------
+    # =========================================================
+
     area_conteudo = ft.Container(
         content=view_dashboard,
         expand=True,
-        padding=ft.padding.only(top=10)
+        padding=10
     )
 
-    # ---------------------------------------------------------
+    # =========================================================
     # MUDAR DE ABA
-    # ---------------------------------------------------------
+    # =========================================================
+
     def mudar_aba(e):
-        indice = int(e.control.data)
+
+        indice = int(
+            e.control.data
+        )
 
         views = [
             view_dashboard,
@@ -648,9 +734,10 @@ def main(page: ft.Page):
 
         page.update()
 
-    # ---------------------------------------------------------
-    # MENU
-    # ---------------------------------------------------------
+    # =========================================================
+    # MENU DE NAVEGACAO
+    # =========================================================
+
     menu = ft.Row(
         [
             ft.ElevatedButton(
@@ -660,6 +747,7 @@ def main(page: ft.Page):
                 color="#FFFFFF",
                 on_click=mudar_aba
             ),
+
             ft.ElevatedButton(
                 "e-Fatura e Recibos",
                 data=1,
@@ -667,6 +755,7 @@ def main(page: ft.Page):
                 color="#FFFFFF",
                 on_click=mudar_aba
             ),
+
             ft.ElevatedButton(
                 "Metas e Poupanca",
                 data=2,
@@ -679,24 +768,35 @@ def main(page: ft.Page):
         spacing=10
     )
 
-    # ---------------------------------------------------------
+    # =========================================================
     # MONTAGEM FINAL
-    # ---------------------------------------------------------
+    # =========================================================
+
     page.add(
         header,
-        ft.Container(height=5),
+        ft.Container(
+            height=5
+        ),
         menu,
-        ft.Divider(color="#E2E8F0"),
+        ft.Divider(
+            color="#E2E8F0"
+        ),
         area_conteudo
     )
+
+    # =========================================================
+    # CARREGAR FATURAS
+    # =========================================================
 
     atualizar_faturas()
 
 
-# ---------------------------------------------------------
+# =============================================================
 # INICIAR A APLICACAO
-# ---------------------------------------------------------
+# =============================================================
+
 if __name__ == "__main__":
+
     port = int(
         os.environ.get(
             "PORT",
