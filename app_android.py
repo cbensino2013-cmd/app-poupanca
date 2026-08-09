@@ -103,8 +103,9 @@ def main(page: ft.Page):
             img_preview.visible = False
         page.update()
 
-    # Instanciação do FilePicker com o handler no construtor
-    file_picker = ft.FilePicker(on_result=ao_selecionar_foto)
+    # Instanciação do FilePicker compatível com todas as versões
+    file_picker = ft.FilePicker()
+    file_picker.on_result = ao_selecionar_foto
     page.overlay.append(file_picker)
 
     # =========================================================
