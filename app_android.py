@@ -450,8 +450,8 @@ def main(page: ft.Page):
             ]),
             padding=18,
             gradient=ft.LinearGradient(
-                begin=ft.alignment.top_left,
-                end=ft.alignment.bottom_right,
+                begin=ft.Alignment(-1.0, -1.0),
+                end=ft.Alignment(1.0, 1.0),
                 colors=[ft.Colors.BLUE_GREY_900, ft.Colors.BLACK]
             )
         )
