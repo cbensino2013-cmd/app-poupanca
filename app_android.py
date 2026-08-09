@@ -325,7 +325,7 @@ def main(page: ft.Page):
         ft.Divider(),
         ft.Text("🛒 Ponto de Venda (Saída Rápida)", size=16, weight=ft.FontWeight.BOLD),
         ft.Row([txt_venda_item, txt_venda_valor]),
-        ft.ElevatedButton("Registar Venda", icon=ft.Icons.SHOPPING_CART_CHECK, on_click=registar_venda),
+        ft.ElevatedButton("Registar Venda", icon=ft.Icons.SHOPPING_CART, on_click=registar_venda),
         lbl_tot_vendas_dia,
         lista_vendas_dia,
         ft.Card(
@@ -379,7 +379,7 @@ def main(page: ft.Page):
     ])
 
     # =========================================================
-    # 🧮 SIMULADOR DE IRS (NOVA ABA)
+    # 🧮 SIMULADOR DE IRS
     # =========================================================
     txt_irs_rendimento = ft.TextField(label="Rendimento Anual Bruto (€)", value="18000", keyboard_type=ft.KeyboardType.NUMBER, expand=True)
     txt_irs_retencao = ft.TextField(label="Retenção na Fonte Já Paga (€)", value="2100", keyboard_type=ft.KeyboardType.NUMBER, expand=True)
@@ -400,23 +400,23 @@ def main(page: ft.Page):
             num_filhos = int(txt_irs_filhos.value or 0)
 
             # Dedução específica base do IRS (~4.104€)
-            matéria_coletável = max(0.0, rend_bruto - 4104.0)
+            materia_coletavel = max(0.0, rend_bruto - 4104.0)
 
             # Estimativa simplificada de taxa média efetiva por escalões
-            if matéria_coletável <= 7703:
+            if materia_coletavel <= 7703:
                 taxa = 0.13
-            elif matéria_coletável <= 11623:
+            elif materia_coletavel <= 11623:
                 taxa = 0.165
-            elif matéria_coletável <= 16472:
+            elif materia_coletavel <= 16472:
                 taxa = 0.22
-            elif matéria_coletável <= 21321:
+            elif materia_coletavel <= 21321:
                 taxa = 0.25
-            elif matéria_coletável <= 27146:
+            elif materia_coletavel <= 27146:
                 taxa = 0.32
             else:
                 taxa = 0.38
 
-            imposto_bruto = matéria_coletável * taxa
+            imposto_bruto = materia_coletavel * taxa
             
             # Bonificação por dependente (~600€ por filho)
             deducao_filhos = num_filhos * 600.0
