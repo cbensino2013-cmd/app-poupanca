@@ -103,7 +103,6 @@ def main(page: ft.Page):
             img_preview.visible = False
         page.update()
 
-    # Instanciação do FilePicker compatível com todas as versões
     file_picker = ft.FilePicker()
     file_picker.on_result = ao_selecionar_foto
     page.overlay.append(file_picker)
@@ -113,12 +112,11 @@ def main(page: ft.Page):
     # =========================================================
     grid_irs_ui = ft.Column()
 
-    def atualizar_valor_irs(cat_obj, txt_val):
+    def atualizar_valor_irs(cat_obj, val_str):
         try:
-            cat_obj["valor"] = float(txt_val.value or 0)
+            cat_obj["valor"] = float(val_str or 0)
         except ValueError:
             cat_obj["valor"] = 0.0
-        atualizar_irs_ui()
 
     def atualizar_irs_ui():
         grid_irs_ui.controls.clear()
@@ -130,7 +128,7 @@ def main(page: ft.Page):
                 keyboard_type=ft.KeyboardType.NUMBER,
                 width=180,
                 border_color=item["cor"],
-                on_change=lambda e, obj=item, ctrl=e.control: atualizar_valor_irs(obj, ctrl)
+                on_change=lambda e, obj=item: atualizar_valor_irs(obj, e.control.value)
             )
 
             grid_irs_ui.controls.append(
