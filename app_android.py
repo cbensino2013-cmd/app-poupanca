@@ -142,17 +142,17 @@ def main(page: ft.Page):
             total = subtotal + iva
 
             lbl_orc_resultado.value = (
-                f"📄 **PROPOSTA DE ORÇAMENTO COMERCIAL**\n"
-                f"👤 **Cliente:** {txt_orc_cliente.value or 'Cliente'}\n"
-                f"🛠️ **Serviço:** {txt_orc_servico.value or 'Serviço Técnico'}\n"
+                f"📄 PROPOSTA DE ORÇAMENTO COMERCIAL\n"
+                f"👤 Cliente: {txt_orc_cliente.value or 'Cliente'}\n"
+                f"🛠️ Serviço: {txt_orc_servico.value or 'Serviço Técnico'}\n"
                 f"----------------------------------------\n"
                 f"• Mão de Obra: {base:.2f} €\n"
                 f"• Materiais: {mat:.2f} €\n"
                 f"• Subtotal Liquido: {subtotal:.2f} €\n"
                 f"• IVA ({dd_orc_iva.value}): {iva:.2f} €\n"
-                f"💰 **TOTAL COM IVA: {total:.2f} €**\n"
+                f"💰 TOTAL COM IVA: {total:.2f} €\n"
                 f"----------------------------------------\n"
-                f"📌 *Orçamento válido por 30 dias.*"
+                f"📌 Orçamento válido por 30 dias."
             )
         except Exception:
             lbl_orc_resultado.value = "⚠️ Erro ao calcular orçamento."
@@ -261,11 +261,11 @@ def main(page: ft.Page):
         tot_vendas = sum(v["valor"] for v in vendas_dia)
         total_em_caixa = caixa_inicio_dia + tot_vendas
         lbl_fecho_resumo.value = (
-            f"🔒 **FECHO DE DIA CONCLUÍDO**\n"
+            f"🔒 FECHO DE DIA CONCLUÍDO\n"
             f"• Fundo Inicial de Caixa: {caixa_inicio_dia:.2f} €\n"
             f"• Total de Vendas Registadas: {tot_vendas:.2f} €\n"
-            f"💰 **VALOR TOTAL ESPERADO EM CAIXA: {total_em_caixa:.2f} €**\n"
-            f"✅ *Relatório do dia guardado.*"
+            f"💰 VALOR TOTAL ESPERADO EM CAIXA: {total_em_caixa:.2f} €\n"
+            f"✅ Relatório do dia guardado."
         )
         page.update()
 
@@ -357,9 +357,9 @@ def main(page: ft.Page):
             content=ft.Container(
                 content=ft.Column([
                     ft.Text("💡 Dica Fiscal Importante:", weight=ft.FontWeight.BOLD, color=ft.Colors.AMBER_200),
-                    ft.Text("• **IUC:** Pago no mês da matrícula do veículo."),
-                    ft.Text("• **IMI:** Pode ser pago em até 3 prestações (Maio, Agosto, Novembro)."),
-                    ft.Text("• **IVA:** Guarda a percentagem de IVA faturada para a liquidação trimestral/mensal.")
+                    ft.Text("• IUC: Pago no mês da matrícula do veículo."),
+                    ft.Text("• IMI: Pode ser pago em até 3 prestações (Maio, Agosto, Novembro)."),
+                    ft.Text("• IVA: Guarda a percentagem de IVA faturada para a liquidação trimestral/mensal.")
                 ]), padding=12
             )
         )
@@ -386,10 +386,8 @@ def main(page: ft.Page):
             deducoes = float(txt_irs_deducoes.value or 0)
             num_filhos = int(txt_irs_filhos.value or 0)
 
-            # Dedução específica base do IRS (~4.104€)
             materia_coletavel = max(0.0, rend_bruto - 4104.0)
 
-            # Estimativa simplificada de taxa média efetiva por escalões
             if materia_coletavel <= 7703:
                 taxa = 0.13
             elif materia_coletavel <= 11623:
@@ -404,24 +402,21 @@ def main(page: ft.Page):
                 taxa = 0.38
 
             imposto_bruto = materia_coletavel * taxa
-            
-            # Bonificação por dependente (~600€ por filho)
             deducao_filhos = num_filhos * 600.0
             imposto_liquido = max(0.0, imposto_bruto - deducoes - deducao_filhos)
 
-            # Balanço final entre Retenção efetuada e Imposto Líquido devido
             diferenca = retencao - imposto_liquido
 
             if diferenca >= 0:
                 resultado_texto = (
-                    f"🟢 **REEMBOLSO ESTIMADO:** +{diferenca:.2f} €\n\n"
+                    f"🟢 REEMBOLSO ESTIMADO: +{diferenca:.2f} €\n\n"
                     f"🎉 Vais receber reembolso da Autoridade Tributária!\n"
                     f"• Imposto Total Calculado: {imposto_liquido:.2f} €\n"
                     f"• Retenção que já pagaste: {retencao:.2f} €"
                 )
             else:
                 resultado_texto = (
-                    f"🔴 **IMPOSTO A PAGAR ESTIMADO:** {abs(diferenca):.2f} €\n\n"
+                    f"🔴 IMPOSTO A PAGAR ESTIMADO: {abs(diferenca):.2f} €\n\n"
                     f"⚠️ Terás de pagar a diferença às Finanças.\n"
                     f"• Imposto Total Calculado: {imposto_liquido:.2f} €\n"
                     f"• Retenção que já pagaste: {retencao:.2f} €"
@@ -460,17 +455,17 @@ def main(page: ft.Page):
     ])
 
     # =========================================================
-    # NAVEGAÇÃO PRINCIPAL (5 ABAS)
+    # NAVEGAÇÃO PRINCIPAL (Sintaxe Standard Flet)
     # =========================================================
     tabs = ft.Tabs(
         selected_index=0,
         animation_duration=300,
         tabs=[
-            ft.Tab(text="🏢 Empresa", icon=ft.Icons.BUSINESS, content=perfil_empresa),
-            ft.Tab(text="🏪 Loja & POS", icon=ft.Icons.STORE, content=perfil_loja),
-            ft.Tab(text="👤 Particular", icon=ft.Icons.PERSON, content=perfil_particular),
-            ft.Tab(text="🏛️ Impostos", icon=ft.Icons.RECEIPT_LONG, content=perfil_impostos),
-            ft.Tab(text="🧮 Simulador IRS", icon=ft.Icons.CALCULATE, content=perfil_simulador_irs),
+            ft.Tab(tab_content=ft.Text("🏢 Empresa"), content=perfil_empresa),
+            ft.Tab(tab_content=ft.Text("🏪 Loja & POS"), content=perfil_loja),
+            ft.Tab(tab_content=ft.Text("👤 Particular"), content=perfil_particular),
+            ft.Tab(tab_content=ft.Text("🏛️ Impostos"), content=perfil_impostos),
+            ft.Tab(tab_content=ft.Text("🧮 Simulador IRS"), content=perfil_simulador_irs),
         ],
         expand=True
     )
