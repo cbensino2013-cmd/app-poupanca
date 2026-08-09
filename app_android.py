@@ -88,7 +88,7 @@ def main(page: ft.Page):
     img_preview = ft.Image(src="", width=150, height=150, fit="cover", visible=False, border_radius=8)
     lbl_status_foto = ft.Text("Nenhuma foto anexa", size=12, italic=True, color="#7A869A")
 
-    def ao_selecionar_foto(e):
+    def ao_selecionar_foto(e: ft.FilePickerResultEvent):
         if e.files and len(e.files) > 0:
             ficheiro = e.files[0]
             foto_preview_url["src"] = ficheiro.path
@@ -103,8 +103,8 @@ def main(page: ft.Page):
             img_preview.visible = False
         page.update()
 
-    file_picker = ft.FilePicker()
-    file_picker.on_result = ao_selecionar_foto
+    # Instanciação do FilePicker com o handler no construtor
+    file_picker = ft.FilePicker(on_result=ao_selecionar_foto)
     page.overlay.append(file_picker)
 
     # =========================================================
