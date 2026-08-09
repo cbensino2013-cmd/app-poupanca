@@ -2,7 +2,7 @@ import flet as ft
 import os
 
 def main(page: ft.Page):
-    page.title = "Plataforma de Gestão: Empresa, Loja, Particular & Impostos"
+    page.title = "Plataforma de Gestão: Empresa, Loja, Particular, Impostos & Simulador IRS"
     page.theme_mode = ft.ThemeMode.DARK
     page.scroll = ft.ScrollMode.AUTO
     page.padding = 15
@@ -16,7 +16,7 @@ def main(page: ft.Page):
     # Loja & POS
     caixa_inicio_dia = 0.0
     vendas_dia = []
-    stock_fifo = []  # Ex: {"produto": "T-Shirt", "lote": 1, "qtd": 10, "custo": 5.0}
+    stock_fifo = []
 
     # Impostos
     impostos_lista = [
@@ -28,12 +28,17 @@ def main(page: ft.Page):
         {"nome": "Segurança Social (TSU)", "tipo": "Empresa", "mes": "Mensal (Dia 20)", "estado": "Pendente"},
     ]
 
-    # File Picker Generico
-    file_picker = ft.FilePicker(on_result=lambda e: page.show_snack_bar(ft.SnackBar(ft.Text("Ficheiro / Print Anexado com Sucesso!"))))
+    # File Picker Genérico
+    def file_picker_result(e):
+        if e.files:
+            page.show_snack_bar(ft.SnackBar(ft.Text("Ficheiro / Print Anexado com Sucesso!")))
+
+    file_picker = ft.FilePicker()
+    file_picker.on_result = file_picker_result
     page.overlay.append(file_picker)
 
     # =========================================================
-    # 🟢 PERFIL PARTICULAR (DIA A DIA & IMPOSTOS)
+    # 🟢 PERFIL PARTICULAR
     # =========================================================
     txt_rendimento_p = ft.TextField(label="Rendimento / Saldo (€)", value="1500", keyboard_type=ft.KeyboardType.NUMBER, width=170, on_change=lambda e: atualizar_particular())
     txt_meta_p = ft.TextField(label="Meta Poupança (€)", value="300", keyboard_type=ft.KeyboardType.NUMBER, width=170, on_change=lambda e: atualizar_particular())
@@ -108,12 +113,12 @@ def main(page: ft.Page):
     ])
 
     # =========================================================
-    # 🏢 PERFIL EMPRESA & CRM (DIVULGADORES & COMPRADORES)
+    # 🏢 PERFIL EMPRESA & CRM
     # =========================================================
     txt_cli_nome = ft.TextField(label="Nome do Contacto / Empresa", expand=True)
     txt_cli_contacto = ft.TextField(label="Telefone / Email", width=180)
     dd_cli_papel = ft.Dropdown(
-        label="Papel / Função", width=180, value="Comprador",
+        label="Papel / Função", width=180, value="Comprador Potencial",
         options=[
             ft.dropdown.Option("Comprador Potencial"),
             ft.dropdown.Option("Comprador Confirmado"),
@@ -129,12 +134,10 @@ def main(page: ft.Page):
             txt_cli_nome.value = ""; txt_cli_contacto.value = ""
             atualizar_empresa()
 
-    # Previsão Financeira Empresarial
     txt_emp_fat = ft.TextField(label="Faturação Prevista (€)", value="5000", keyboard_type=ft.KeyboardType.NUMBER, width=170, on_change=lambda e: atualizar_empresa())
     txt_emp_gastos = ft.TextField(label="Gastos / Custos (€)", value="2200", keyboard_type=ft.KeyboardType.NUMBER, width=170, on_change=lambda e: atualizar_empresa())
     lbl_emp_lucro = ft.Text("Lucro Previsto: 0.00 €", size=16, weight=ft.FontWeight.BOLD, color=ft.Colors.GREEN_300)
 
-    # Orçamentos
     txt_orc_cliente = ft.TextField(label="Nome do Cliente", expand=True)
     txt_orc_servico = ft.TextField(label="Descrição do Serviço / Obra", expand=True)
     txt_orc_valor_base = ft.TextField(label="Mão de Obra (€)", value="1200", width=140)
@@ -190,7 +193,6 @@ def main(page: ft.Page):
 
     perfil_empresa = ft.Column([
         ft.Text("🏢 Gestão de Negócio & Clientes", size=20, weight=ft.FontWeight.BOLD, color=ft.Colors.AMBER_300),
-        
         ft.Card(
             content=ft.Container(
                 content=ft.Column([
@@ -200,14 +202,11 @@ def main(page: ft.Page):
                 ]), padding=12
             )
         ),
-        
         ft.Text("👥 Redes de Contactos (Compradores & Divulgadores)", size=16, weight=ft.FontWeight.BOLD),
         ft.Row([txt_cli_nome, txt_cli_contacto, dd_cli_papel]),
         ft.ElevatedButton("Registar Contacto", icon=ft.Icons.PERSON_ADD, on_click=add_cliente),
         lista_clientes,
-
         ft.Divider(),
-
         ft.Text("📄 Orçamentos Rápidos", size=16, weight=ft.FontWeight.BOLD),
         txt_orc_cliente,
         txt_orc_servico,
@@ -222,18 +221,15 @@ def main(page: ft.Page):
     txt_fundo_caixa = ft.TextField(label="Fundo de Maneio / Início do Dia (€)", value="100.00", width=220)
     lbl_status_caixa = ft.Text("Caixa Aberta com 100.00 €", color=ft.Colors.GREEN_400, weight=ft.FontWeight.BOLD)
 
-    # Stock FIFO
     txt_prod_nome = ft.TextField(label="Produto / Item", expand=True)
     txt_prod_qtd = ft.TextField(label="Qtd Lote", width=100, keyboard_type=ft.KeyboardType.NUMBER)
     txt_prod_custo = ft.TextField(label="Custo Un. (€)", width=110, keyboard_type=ft.KeyboardType.NUMBER)
     lista_stock_fifo = ft.Column()
 
-    # Venda Rápida
     txt_venda_item = ft.TextField(label="Item a Vender", expand=True)
     txt_venda_valor = ft.TextField(label="Valor Venda (€)", width=130, keyboard_type=ft.KeyboardType.NUMBER)
     lista_vendas_dia = ft.Column()
     lbl_tot_vendas_dia = ft.Text("Total Vendas do Dia: 0.00 €", size=16, weight=ft.FontWeight.BOLD, color=ft.Colors.CYAN_300)
-
     lbl_fecho_resumo = ft.Text("Faz o fecho do dia para veres o balanço final da caixa.", size=13)
 
     def iniciar_caixa(e):
@@ -264,7 +260,6 @@ def main(page: ft.Page):
                 val = float(txt_venda_valor.value)
                 item_nome = txt_venda_item.value
                 
-                # Saída FIFO do Stock
                 for lote in stock_fifo:
                     if lote["item"].lower() == item_nome.lower() and lote["qtd"] > 0:
                         lote["qtd"] -= 1
@@ -291,7 +286,6 @@ def main(page: ft.Page):
         tot_vendas = sum(v["valor"] for v in vendas_dia)
         lbl_tot_vendas_dia.value = f"Total Vendas Hoje: {tot_vendas:.2f} €"
 
-        # Atualizar Stock FIFO
         lista_stock_fifo.controls.clear()
         for s in stock_fifo:
             lista_stock_fifo.controls.append(
@@ -302,7 +296,6 @@ def main(page: ft.Page):
                 )
             )
 
-        # Atualizar Vendas do Dia
         lista_vendas_dia.controls.clear()
         for v in vendas_dia:
             lista_vendas_dia.controls.append(
@@ -316,8 +309,6 @@ def main(page: ft.Page):
 
     perfil_loja = ft.Column([
         ft.Text("🏪 Gestão de Loja, POS & Stock (FIFO)", size=20, weight=ft.FontWeight.BOLD, color=ft.Colors.TEAL_200),
-        
-        # Abertura de Caixa
         ft.Card(
             content=ft.Container(
                 content=ft.Column([
@@ -327,22 +318,16 @@ def main(page: ft.Page):
                 ]), padding=12
             )
         ),
-
-        # Entrada de Produtos (FIFO)
         ft.Text("📦 Entrada de Produto no Stock (Lotes FIFO)", size=16, weight=ft.FontWeight.BOLD),
         ft.Row([txt_prod_nome, txt_prod_qtd, txt_prod_custo]),
         ft.ElevatedButton("Registar Entrada no Stock", icon=ft.Icons.ADD_BOX, on_click=dar_entrada_fifo),
         lista_stock_fifo,
-
         ft.Divider(),
-
-        # Vendas e Fecho
         ft.Text("🛒 Ponto de Venda (Saída Rápida)", size=16, weight=ft.FontWeight.BOLD),
         ft.Row([txt_venda_item, txt_venda_valor]),
         ft.ElevatedButton("Registar Venda", icon=ft.Icons.SHOPPING_CART_CHECK, on_click=registar_venda),
         lbl_tot_vendas_dia,
         lista_vendas_dia,
-
         ft.Card(
             content=ft.Container(
                 content=ft.Column([
@@ -355,7 +340,7 @@ def main(page: ft.Page):
     ])
 
     # =========================================================
-    # 🏛️ ABA DE ALERTAS DE IMPOSTOS (IUC, IRS, IMI, IVA)
+    # 🏛️ ALERTAS DE IMPOSTOS
     # =========================================================
     lista_impostos_ui = ft.Column()
 
@@ -379,22 +364,116 @@ def main(page: ft.Page):
 
     perfil_impostos = ft.Column([
         ft.Text("🏛️ Calendário & Alertas de Impostos (Portugal)", size=20, weight=ft.FontWeight.BOLD, color=ft.Colors.RED_300),
-        ft.Text("Acompanha os prazos para evitar coimas da Autoridade Tributária (Finanças):"),
+        ft.Text("Acompanha os prazos para evitar coimas da Autoridade Tributária:"),
         lista_impostos_ui,
         ft.Card(
             content=ft.Container(
                 content=ft.Column([
                     ft.Text("💡 Dica Fiscal Importante:", weight=ft.FontWeight.BOLD, color=ft.Colors.AMBER_200),
-                    ft.Text("• **IUC:** Deve ser pago até ao último dia do mês da matrícula do veículo."),
-                    ft.Text("• **IMI:** Pode ser pago em 1, 2 ou 3 prestações consoante o valor total (Maio, Agosto, Novembro)."),
-                    ft.Text("• **IVA:** Mantém sempre de parte a percentagem de IVA faturada aos teus clientes para não teres surpresas no fecho do trimestre.")
+                    ft.Text("• **IUC:** Pago no mês da matrícula do veículo."),
+                    ft.Text("• **IMI:** Pode ser pago em até 3 prestações (Maio, Agosto, Novembro)."),
+                    ft.Text("• **IVA:** Guarda a percentagem de IVA faturada para a liquidação trimestral/mensal.")
                 ]), padding=12
             )
         )
     ])
 
     # =========================================================
-    # NAVEGAÇÃO PRINCIPAL (4 ABAS)
+    # 🧮 SIMULADOR DE IRS (NOVA ABA)
+    # =========================================================
+    txt_irs_rendimento = ft.TextField(label="Rendimento Anual Bruto (€)", value="18000", keyboard_type=ft.KeyboardType.NUMBER, expand=True)
+    txt_irs_retencao = ft.TextField(label="Retenção na Fonte Já Paga (€)", value="2100", keyboard_type=ft.KeyboardType.NUMBER, expand=True)
+    txt_irs_deducoes = ft.TextField(label="Deduções à Coleta / e-Fatura (€)", value="600", keyboard_type=ft.KeyboardType.NUMBER, expand=True)
+    dd_irs_estado = ft.Dropdown(
+        label="Estado Civil", value="Solteiro / Não Casado", width=220,
+        options=[ft.dropdown.Option("Solteiro / Não Casado"), ft.dropdown.Option("Casado / União de Facto (1 Titular)"), ft.dropdown.Option("Casado / União de Facto (2 Titulares)")]
+    )
+    txt_irs_filhos = ft.TextField(label="Nº de Dependentes", value="0", width=140, keyboard_type=ft.KeyboardType.NUMBER)
+
+    lbl_simulacao_resultado = ft.Text("Preenche os dados acima e clica em 'Simular IRS'.", size=14)
+
+    def calcular_simulacao_irs(e):
+        try:
+            rend_bruto = float(txt_irs_rendimento.value or 0)
+            retencao = float(txt_irs_retencao.value or 0)
+            deducoes = float(txt_irs_deducoes.value or 0)
+            num_filhos = int(txt_irs_filhos.value or 0)
+
+            # Dedução específica base do IRS (~4.104€)
+            matéria_coletável = max(0.0, rend_bruto - 4104.0)
+
+            # Estimativa simplificada de taxa média efetiva por escalões
+            if matéria_coletável <= 7703:
+                taxa = 0.13
+            elif matéria_coletável <= 11623:
+                taxa = 0.165
+            elif matéria_coletável <= 16472:
+                taxa = 0.22
+            elif matéria_coletável <= 21321:
+                taxa = 0.25
+            elif matéria_coletável <= 27146:
+                taxa = 0.32
+            else:
+                taxa = 0.38
+
+            imposto_bruto = matéria_coletável * taxa
+            
+            # Bonificação por dependente (~600€ por filho)
+            deducao_filhos = num_filhos * 600.0
+            imposto_liquido = max(0.0, imposto_bruto - deducoes - deducao_filhos)
+
+            # Balanço final entre Retenção efetuada e Imposto Líquido devido
+            diferenca = retencao - imposto_liquido
+
+            if diferenca >= 0:
+                resultado_texto = (
+                    f"🟢 **REEMBOLSO ESTIMADO:** +{diferenca:.2f} €\n\n"
+                    f"🎉 Vais receber reembolso da Autoridade Tributária!\n"
+                    f"• Imposto Total Calculado: {imposto_liquido:.2f} €\n"
+                    f"• Retenção que já pagaste: {retencao:.2f} €"
+                )
+            else:
+                resultado_texto = (
+                    f"🔴 **IMPOSTO A PAGAR ESTIMADO:** {abs(diferenca):.2f} €\n\n"
+                    f"⚠️ Terás de pagar a diferença às Finanças.\n"
+                    f"• Imposto Total Calculado: {imposto_liquido:.2f} €\n"
+                    f"• Retenção que já pagaste: {retencao:.2f} €"
+                )
+
+            lbl_simulacao_resultado.value = resultado_texto
+        except Exception:
+            lbl_simulacao_resultado.value = "⚠️ Erro ao calcular a simulação. Verifica os números inseridos."
+        page.update()
+
+    perfil_simulador_irs = ft.Column([
+        ft.Text("🧮 Simulador de IRS (Estimativa Anual)", size=20, weight=ft.FontWeight.BOLD, color=ft.Colors.LIGHT_BLUE_300),
+        ft.Text("Calcula quanto podes receber ou pagar no acerto anual de IRS em Portugal:"),
+        
+        ft.Row([txt_irs_rendimento, txt_irs_retencao]),
+        ft.Row([txt_irs_deducoes, dd_irs_estado, txt_irs_filhos]),
+        
+        ft.ElevatedButton("Calcular Simulação de IRS", icon=ft.Icons.CALCULATE, on_click=calcular_simulacao_irs),
+        
+        ft.Card(
+            content=ft.Container(
+                content=ft.Column([
+                    lbl_simulacao_resultado
+                ]), padding=15
+            )
+        ),
+        
+        ft.Card(
+            content=ft.Container(
+                content=ft.Column([
+                    ft.Text("ℹ️ Nota Informativa:", weight=ft.FontWeight.BOLD, color=ft.Colors.AMBER_200),
+                    ft.Text("Esta simulação utiliza tabelas e deduções médias padrão. O valor exato final depende da validação oficial das faturas no e-Fatura da Autoridade Tributária.")
+                ]), padding=12
+            )
+        )
+    ])
+
+    # =========================================================
+    # NAVEGAÇÃO PRINCIPAL (5 ABAS)
     # =========================================================
     tabs = ft.Tabs(
         selected_index=0,
@@ -404,6 +483,7 @@ def main(page: ft.Page):
             ft.Tab(text="🏪 Loja & POS", icon=ft.Icons.STORE, content=perfil_loja),
             ft.Tab(text="👤 Particular", icon=ft.Icons.PERSON, content=perfil_particular),
             ft.Tab(text="🏛️ Impostos", icon=ft.Icons.RECEIPT_LONG, content=perfil_impostos),
+            ft.Tab(text="🧮 Simulador IRS", icon=ft.Icons.CALCULATE, content=perfil_simulador_irs),
         ],
         expand=True
     )
