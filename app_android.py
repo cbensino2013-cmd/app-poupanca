@@ -84,8 +84,8 @@ def main(page: ft.Page):
     ]
     lbl_frase = ft.Text(random.choice(frases_motivacionais), italic=True, size=14, color="#0052CC", weight=ft.FontWeight.BOLD)
 
-    # UPLOADER DE FOTOS
-    img_preview = ft.Image(src="", width=150, height=150, fit=ft.ImageFit.COVER, visible=False, border_radius=8)
+    # UPLOADER DE FOTOS (Usando fit="cover" direto)
+    img_preview = ft.Image(src="", width=150, height=150, fit="cover", visible=False, border_radius=8)
     lbl_status_foto = ft.Text("Nenhuma foto anexa", size=12, italic=True, color="#7A869A")
 
     def ao_selecionar_foto(e: ft.FilePickerResultEvent):
@@ -107,7 +107,7 @@ def main(page: ft.Page):
     page.overlay.append(file_picker)
 
     # =========================================================
-    # 🏛️ MÓDULO IRS & FINANÇAS (DESIGN POR QUADRADOS EXPLICATIVOS)
+    # 🏛️ MÓDULO IRS & FINANÇAS
     # =========================================================
     grid_irs_ui = ft.Column()
 
@@ -121,7 +121,6 @@ def main(page: ft.Page):
     def atualizar_irs_ui():
         grid_irs_ui.controls.clear()
         
-        # Criar cartões iluminados por cada quadrado do IRS
         for item in categorias_irs:
             txt_input = ft.TextField(
                 label="Acumulado Registado (€)",
@@ -138,7 +137,6 @@ def main(page: ft.Page):
                     elevation=3,
                     content=ft.Container(
                         content=ft.Column([
-                            # Título do Quadrado + Teto do IRS
                             ft.Row([
                                 ft.Icon(ft.Icons.RECEIPT_LONG, color=item["cor"], size=28),
                                 ft.Text(item["cat"], weight=ft.FontWeight.BOLD, size=16, color="#172B4D", expand=True),
@@ -150,7 +148,6 @@ def main(page: ft.Page):
                                 )
                             ]),
                             ft.Divider(color="#E2E8F0"),
-                            # Caixa Amarela explicativa estilo Guia das Finanças
                             ft.Container(
                                 content=ft.Text(item["instrucao"], size=13, color="#172B4D", weight=ft.FontWeight.W_500),
                                 bgcolor="#FFF8E1",
@@ -401,7 +398,7 @@ def main(page: ft.Page):
             status_icon = "🟢 PAGO" if f["pago"] else "🔴 PENDENTE"
             status_color = "#00875A" if f["pago"] else "#DE350B"
             
-            foto_widget = ft.Image(src=f["foto_url"], width=80, height=80, fit=ft.ImageFit.COVER, border_radius=6) if f["foto_url"] else ft.Icon(ft.Icons.RECEIPT_LONG, color="#0052CC", size=40)
+            foto_widget = ft.Image(src=f["foto_url"], width=80, height=80, fit="cover", border_radius=6) if f["foto_url"] else ft.Icon(ft.Icons.RECEIPT_LONG, color="#0052CC", size=40)
 
             lista_faturas_ui.controls.append(
                 ft.Card(
