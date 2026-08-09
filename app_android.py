@@ -46,13 +46,13 @@ def main(page: ft.Page):
             padding=20,
             border_radius=16,
             border=ft.Border.all(1, "#E2E8F0"),
-            shadow=ft.BoxShadow(blur_radius=10, color=ft.colors.with_opacity(0.05, "#000000")),
+            shadow=ft.BoxShadow(blur_radius=10, color="#0D000000"),
             content=ft.Column([
                 ft.Row([
                     ft.Text(titulo, size=13, weight=ft.FontWeight.W_600, color="#64748B"),
                     ft.Container(
                         content=ft.Icon(icone, color=cor_icone, size=20),
-                        bgcolor=ft.colors.with_opacity(0.1, cor_icone),
+                        bgcolor="#1F" + cor_icone.lstrip("#"),  # Aplica ~12% de opacidade de forma segura
                         padding=8,
                         border_radius=10
                     )
@@ -203,7 +203,7 @@ def main(page: ft.Page):
     frases = [
         "✨ «O controlo financeiro de hoje constrói a liberdade de amanhã.»",
         "💎 «Saber exatamente onde está o seu dinheiro é o primeiro passo para o multiplicar.»",
-        "⚡ «Pequenas otimizações no IRS geram grandes retornos no final do ano.»"
+        "⚡ «Pequenas otimizaciones no IRS geram grandes retornos no final do ano.»"
     ]
 
     header = ft.Container(
