@@ -247,7 +247,8 @@ def main(page: ft.Page):
     # 📝 NOTAS & LEMBRETES
     # =========================================================
     txt_nota_titulo = ft.TextField(label="Título da Nota", expand=True, border_color="#9C27B0")
-    txt_nota_texto = ft.TextField(label="Conteúdo / Apontamento", multiline=True, rows=3, expand=True, border_color="#9C27B0")
+    # 🟢 Corrigido: 'rows=3' alterado para 'max_lines=3'
+    txt_nota_texto = ft.TextField(label="Conteúdo / Apontamento", multiline=True, max_lines=3, expand=True, border_color="#9C27B0")
     lista_notas_ui = ft.Column()
 
     def add_nota(e):
