@@ -50,14 +50,12 @@ def main(page: ft.Page):
                     padding=15,
                     bgcolor=ft.Colors.WHITE,
                     border_radius=12,
-                    border=ft.Border(ft.BorderSide(1, ft.Colors.BLUE_200), ft.BorderSide(1, ft.Colors.BLUE_200), ft.BorderSide(1, ft.Colors.BLUE_200), ft.BorderSide(1, ft.Colors.BLUE_200)),
                     width=380
                 )
             ],
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
             alignment=ft.MainAxisAlignment.CENTER
         ),
-        alignment=ft.alignment.center,
         expand=True
     )
 
@@ -187,7 +185,7 @@ def main(page: ft.Page):
             res_taxa,
             res_recomendacao,
         ]),
-        padding=15, bgcolor=ft.Colors.WHITE, border_radius=10, border=ft.Border(ft.BorderSide(1, ft.Colors.GREY_300), ft.BorderSide(1, ft.Colors.GREY_300), ft.BorderSide(1, ft.Colors.GREY_300), ft.BorderSide(1, ft.Colors.GREY_300))
+        padding=15, bgcolor=ft.Colors.WHITE, border_radius=10
     )
 
     # -------------------------------------------------------------------------
@@ -199,7 +197,7 @@ def main(page: ft.Page):
             ft.dropdown.Option("🎨 Pintura de Interiores"),
             ft.dropdown.Option("🪵 Aplicação de Flutuante/Vinil"),
             ft.dropdown.Option("🧱 Tecto Falso em Pladur"),
-            ft.dropdown.Option("Doces / Remodelação de Casa de Banho"),
+            ft.dropdown.Option("🚿 Remodelação de Casa de Banho"),
         ],
         value="🎨 Pintura de Interiores",
         width=250
@@ -228,7 +226,7 @@ def main(page: ft.Page):
                 "🎨 Pintura de Interiores": 12,
                 "🪵 Aplicação de Flutuante/Vinil": 22,
                 "🧱 Tecto Falso em Pladur": 28,
-                "Doces / Remodelação de Casa de Banho": 85
+                "🚿 Remodelação de Casa de Banho": 85
             }
 
             multiplicador = {"Económica": 0.85, "Profissional": 1.0, "Premium": 1.35}[gama]
@@ -260,7 +258,7 @@ def main(page: ft.Page):
             ft.ElevatedButton("Gerar Orçamento Rigoroso", on_click=calcular_orcamento, bgcolor=ft.Colors.BLUE_600, color=ft.Colors.WHITE),
             res_orcamento
         ]),
-        padding=15, bgcolor=ft.Colors.WHITE, border_radius=10, border=ft.Border(ft.BorderSide(1, ft.Colors.GREY_300), ft.BorderSide(1, ft.Colors.GREY_300), ft.BorderSide(1, ft.Colors.GREY_300), ft.BorderSide(1, ft.Colors.GREY_300))
+        padding=15, bgcolor=ft.Colors.WHITE, border_radius=10
     )
 
     # -------------------------------------------------------------------------
@@ -291,7 +289,7 @@ def main(page: ft.Page):
                 ft.ElevatedButton("Validar no e-Fatura", icon=ft.Icons.CHECK_CIRCLE)
             ], wrap=True)
         ]),
-        padding=15, bgcolor=ft.Colors.WHITE, border_radius=10, border=ft.Border(ft.BorderSide(1, ft.Colors.GREY_300), ft.BorderSide(1, ft.Colors.GREY_300), ft.BorderSide(1, ft.Colors.GREY_300), ft.BorderSide(1, ft.Colors.GREY_300))
+        padding=15, bgcolor=ft.Colors.WHITE, border_radius=10
     )
 
     # -------------------------------------------------------------------------
@@ -308,7 +306,7 @@ def main(page: ft.Page):
                 ], wrap=True)
             ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN, wrap=True),
         ]),
-        padding=10, bgcolor=ft.Colors.WHITE, border=ft.Border(bottom=ft.BorderSide(1, ft.Colors.GREY_300))
+        padding=10, bgcolor=ft.Colors.WHITE
     )
 
     # -------------------------------------------------------------------------
@@ -317,10 +315,8 @@ def main(page: ft.Page):
     page.add(splash_screen)
     page.update()
 
-    # Simulação do tempo de carregamento da app
-    time.sleep(1.8)
+    time.sleep(2.0)
 
-    # Limpar a splash screen e carregar a aplicação principal
     page.controls.clear()
     page.floating_action_button = fab_btn
     page.add(
