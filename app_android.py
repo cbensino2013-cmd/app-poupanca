@@ -19,7 +19,7 @@ def main(page: ft.Page):
     user_input = ft.TextField(hint_text="Pergunte sobre IRS, Créditos, Obras, AIMA...", expand=True)
 
     def send_message(e):
-        if user_input.value.strip():
+        if user_input.value and user_input.value.strip():
             chat_messages.controls.append(
                 ft.Text(f"👤 Você: {user_input.value}", weight=ft.FontWeight.BOLD)
             )
@@ -58,11 +58,18 @@ def main(page: ft.Page):
         ai_dialog.open = True
         page.update()
 
+    # CORREÇÃO AQUI: uso de content com Row para ícone + texto
     page.floating_action_button = ft.FloatingActionButton(
-        icon=ft.Icons.CHAT_BUBBLE,
-        text="AURA AI",
+        content=ft.Row(
+            [
+                ft.Icon(ft.Icons.CHAT_BUBBLE, color=ft.Colors.WHITE),
+                ft.Text("AURA AI", color=ft.Colors.WHITE, weight=ft.FontWeight.BOLD)
+            ],
+            alignment=ft.MainAxisAlignment.CENTER,
+            spacing=5
+        ),
         bgcolor=ft.Colors.BLUE_700,
-        content_color=ft.Colors.WHITE,
+        width=120,
         on_click=open_ai_chat
     )
 
@@ -169,7 +176,6 @@ def main(page: ft.Page):
             servico = dd_servico.value
             gama = dd_gama.value
 
-            # Valores base por m²
             precos_base = {
                 "🎨 Pintura de Interiores": 12,
                 "🪵 Aplicação de Flutuante/Vinil": 22,
@@ -180,10 +186,10 @@ def main(page: ft.Page):
             multiplicador = {"Económica": 0.85, "Profissional": 1.0, "Premium": 1.35}[gama]
             
             custo_m2 = precos_base.get(servico, 15) * multiplicador
-            subtotal_materiais = (custo_m2 * 0.4) * area * 1.10  # +10% margem desperdício
+            subtotal_materiais = (custo_m2 * 0.4) * area * 1.10
             subtotal_mao_obra = (custo_m2 * 0.6) * area
             subtotal = subtotal_materiais + subtotal_mao_obra
-            iva = subtotal * 0.06  # Taxa reduzida de IVA para remodelações
+            iva = subtotal * 0.06
             total = subtotal + iva
 
             res_orcamento.controls = [
