@@ -1,5 +1,5 @@
 import flet as ft
-import os
+import time
 import random
 
 def main(page: ft.Page):
@@ -11,6 +11,55 @@ def main(page: ft.Page):
     page.bgcolor = "#F8FAFC"
     page.padding = 15
     page.scroll = ft.ScrollMode.AUTO
+
+    # -------------------------------------------------------------------------
+    # 💡 ECRÃ DE CARREGAMENTO ANIMADO COM DICAS INTELIGENTES (SPLASH SCREEN)
+    # -------------------------------------------------------------------------
+    dicas = [
+        "💡 **Como Poupar:** Já tentou a regra 50/30/20? 50% para necessidades, 30% para desejos e 20% para poupança/amortização de dívidas!",
+        "🏢 **Gestão B2B:** Em obras de remodelação, aproveite a taxa reduzida de IVA a 6% para mão de obra em imóveis de habitação.",
+        "💳 **Dica de Crédito:** Amortizar primeiro os créditos de maior taxa de juro (cartões/pessoais) reduz drasticamente a taxa de esforço.",
+        "🏦 **Contas Sem Comissão:** Sabia que bancos como ActivoBank, Moey! e Banco CTT não cobram comissões de manutenção de conta?",
+        "📄 **IRS & e-Fatura:** Lembre-se de anexar receita médica a faturas de saúde com IVA a 23% para que sejam aceites no e-Fatura!",
+        "📈 **Otimização de Custos:** Reveja anualmente os seus seguros de vida e habitação — transferir de banco pode poupar centenas de euros por ano."
+    ]
+
+    dica_sorteada = random.choice(dicas)
+
+    txt_dica = ft.Text(
+        dica_sorteada,
+        size=15,
+        italic=True,
+        color=ft.Colors.BLUE_900,
+        text_align=ft.TextAlign.CENTER
+    )
+
+    progresso = ft.ProgressBar(width=280, color=ft.Colors.BLUE_600, bgcolor=ft.Colors.BLUE_100)
+
+    splash_screen = ft.Container(
+        content=ft.Column(
+            [
+                ft.Icon(ft.Icons.LIGHTBULB_OUTLINE, size=80, color=ft.Colors.AMBER_500),
+                ft.Text("AURA 360", size=32, weight=ft.FontWeight.BOLD, color=ft.Colors.BLUE_900),
+                ft.Text("A gerar as melhores estratégias para si...", size=14, color=ft.Colors.GREY_700),
+                ft.Container(height=15),
+                progresso,
+                ft.Container(height=20),
+                ft.Container(
+                    content=txt_dica,
+                    padding=15,
+                    bgcolor=ft.Colors.WHITE,
+                    border_radius=12,
+                    border=ft.Border(ft.BorderSide(1, ft.Colors.BLUE_200), ft.BorderSide(1, ft.Colors.BLUE_200), ft.BorderSide(1, ft.Colors.BLUE_200), ft.BorderSide(1, ft.Colors.BLUE_200)),
+                    width=380
+                )
+            ],
+            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+            alignment=ft.MainAxisAlignment.CENTER
+        ),
+        alignment=ft.alignment.center,
+        expand=True
+    )
 
     # -------------------------------------------------------------------------
     # 🤖 WIDGET FLUTUANTE DA IA NO RODAPÉ (AURA AI)
@@ -58,7 +107,7 @@ def main(page: ft.Page):
         ai_dialog.open = True
         page.update()
 
-    page.floating_action_button = ft.FloatingActionButton(
+    fab_btn = ft.FloatingActionButton(
         content=ft.Row(
             [
                 ft.Icon(ft.Icons.CHAT_BUBBLE, color=ft.Colors.WHITE),
@@ -150,7 +199,7 @@ def main(page: ft.Page):
             ft.dropdown.Option("🎨 Pintura de Interiores"),
             ft.dropdown.Option("🪵 Aplicação de Flutuante/Vinil"),
             ft.dropdown.Option("🧱 Tecto Falso em Pladur"),
-            ft.dropdown.Option("🚿 Remodelação de Casa de Banho"),
+            ft.dropdown.Option("Doces / Remodelação de Casa de Banho"),
         ],
         value="🎨 Pintura de Interiores",
         width=250
@@ -179,7 +228,7 @@ def main(page: ft.Page):
                 "🎨 Pintura de Interiores": 12,
                 "🪵 Aplicação de Flutuante/Vinil": 22,
                 "🧱 Tecto Falso em Pladur": 28,
-                "🚿 Remodelação de Casa de Banho": 85
+                "Doces / Remodelação de Casa de Banho": 85
             }
 
             multiplicador = {"Económica": 0.85, "Profissional": 1.0, "Premium": 1.35}[gama]
@@ -259,12 +308,21 @@ def main(page: ft.Page):
                 ], wrap=True)
             ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN, wrap=True),
         ]),
-        padding=10, bgcolor=ft.Colors.WHITE, border=ft.border.only(bottom=ft.BorderSide(1, ft.Colors.GREY_300))
+        padding=10, bgcolor=ft.Colors.WHITE, border=ft.Border(bottom=ft.BorderSide(1, ft.Colors.GREY_300))
     )
 
     # -------------------------------------------------------------------------
-    # MONTAGEM FINAL DA APLICAÇÃO EM SEPARADORES (TABS)
+    # INICIALIZAÇÃO: MOSTRAR SPLASH SCREEN E DEPOIS O PAINEL PRINCIPAL
     # -------------------------------------------------------------------------
+    page.add(splash_screen)
+    page.update()
+
+    # Simulação do tempo de carregamento da app
+    time.sleep(1.8)
+
+    # Limpar a splash screen e carregar a aplicação principal
+    page.controls.clear()
+    page.floating_action_button = fab_btn
     page.add(
         header,
         ft.Tabs(
@@ -278,5 +336,6 @@ def main(page: ft.Page):
             expand=True
         )
     )
+    page.update()
 
 ft.app(target=main)
