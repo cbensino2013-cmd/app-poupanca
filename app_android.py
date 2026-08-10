@@ -58,7 +58,6 @@ def main(page: ft.Page):
         ai_dialog.open = True
         page.update()
 
-    # CORREÇÃO AQUI: uso de content com Row para ícone + texto
     page.floating_action_button = ft.FloatingActionButton(
         content=ft.Row(
             [
@@ -139,7 +138,7 @@ def main(page: ft.Page):
             res_taxa,
             res_recomendacao,
         ]),
-        padding=15, bgcolor=ft.Colors.WHITE, border_radius=10, border=ft.border.all(1, ft.Colors.GREY_300)
+        padding=15, bgcolor=ft.Colors.WHITE, border_radius=10, border=ft.Border(ft.BorderSide(1, ft.Colors.GREY_300), ft.BorderSide(1, ft.Colors.GREY_300), ft.BorderSide(1, ft.Colors.GREY_300), ft.BorderSide(1, ft.Colors.GREY_300))
     )
 
     # -------------------------------------------------------------------------
@@ -212,7 +211,7 @@ def main(page: ft.Page):
             ft.ElevatedButton("Gerar Orçamento Rigoroso", on_click=calcular_orcamento, bgcolor=ft.Colors.BLUE_600, color=ft.Colors.WHITE),
             res_orcamento
         ]),
-        padding=15, bgcolor=ft.Colors.WHITE, border_radius=10, border=ft.border.all(1, ft.Colors.GREY_300)
+        padding=15, bgcolor=ft.Colors.WHITE, border_radius=10, border=ft.Border(ft.BorderSide(1, ft.Colors.GREY_300), ft.BorderSide(1, ft.Colors.GREY_300), ft.BorderSide(1, ft.Colors.GREY_300), ft.BorderSide(1, ft.Colors.GREY_300))
     )
 
     # -------------------------------------------------------------------------
@@ -243,7 +242,7 @@ def main(page: ft.Page):
                 ft.ElevatedButton("Validar no e-Fatura", icon=ft.Icons.CHECK_CIRCLE)
             ], wrap=True)
         ]),
-        padding=15, bgcolor=ft.Colors.WHITE, border_radius=10, border=ft.border.all(1, ft.Colors.GREY_300)
+        padding=15, bgcolor=ft.Colors.WHITE, border_radius=10, border=ft.Border(ft.BorderSide(1, ft.Colors.GREY_300), ft.BorderSide(1, ft.Colors.GREY_300), ft.BorderSide(1, ft.Colors.GREY_300), ft.BorderSide(1, ft.Colors.GREY_300))
     )
 
     # -------------------------------------------------------------------------
