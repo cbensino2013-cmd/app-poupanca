@@ -1,40 +1,40 @@
 import flet as ft
 
 def main(page: ft.Page):
-    page.title = "Exemplo Flet - Ícones Válidos"
+    page.title = "Exemplo Flet - Ícones Corrigidos"
     page.padding = 20
     page.theme_mode = ft.ThemeMode.LIGHT
 
-    # Título da aplicação
+    # Título
     page.add(
         ft.Text("Perfil do Utilizador", style=ft.TextStyle(size=24, weight=ft.FontWeight.BOLD))
     )
 
-    # Exemplo 1: Ícone individual usando string "person"
-    user_icon = ft.Icon(name="person", size=40, color="blue")
+    # Exemplo 1: Ícone individual (passando a string "person" sem 'name=')
+    user_icon = ft.Icon("person", size=40, color="blue")
 
-    # Exemplo 2: Botão elevado com ícone "person"
+    # Exemplo 2: Botão com ícone
     profile_button = ft.ElevatedButton(
         text="Ver Perfil",
         icon="person",
         on_click=lambda e: print("Botão de perfil clicado!")
     )
 
-    # Exemplo 3: Campo de texto com ícone "person" à esquerda
+    # Exemplo 3: Campo de texto com ícone
     username_input = ft.TextField(
         label="Nome de Utilizador",
         prefix_icon="person",
         width=300
     )
 
-    # Adicionar os componentes à página
+    # Adicionar componentes à página
     page.add(
         user_icon,
         username_input,
         profile_button
     )
 
-    # Exemplo 4: Barra de navegação inferior (opcional)
+    # Exemplo 4: Barra de navegação inferior
     page.navigation_bar = ft.NavigationBar(
         destinations=[
             ft.NavigationDestination(icon="home", label="Início"),
