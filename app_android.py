@@ -1,1106 +1,1457 @@
 import flet as ft
-import sqlite3
 import os
 import math
+import re
 from datetime import datetime, date
-
 
 # ============================================================
 # AURA 360
-# Plataforma de Gestão Financeira Pessoal e Empresarial
-# Versão WEB - aplicação completa
+# Plataforma Financeira Pessoal + Empresarial + AURA AI
 # ============================================================
 
-DB_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "aura360.db")
+try:
+    from openai import OpenAI
+except Exception:
+    OpenAI = None
 
 
 # ============================================================
-# BASE DE DADOS
+# CONFIGURAÇÃO
 # ============================================================
 
-def db():
-    conn = sqlite3.connect(DB_FILE)
-    conn.row_factory = sqlite3.Row
-    return conn
+APP_NAME = "AURA 360"
+AI_MODEL = os.environ.get("AURA_AI_MODEL", "gpt-5.5")
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "").strip()
 
+BLUE = "#2563EB"
+BLUE_DARK = "#1D4ED8"
+NAVY = "#0F172A"
+GREEN = "#10B981"
+RED = "#EF4444"
+ORANGE = "#F59E0B"
+PURPLE = "#7C3AED"
+PINK = "#EC4899"
+CYAN = "#0891B2"
 
-def init_database():
-    conn = db()
-    cur = conn.cursor()
-
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS transactions (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            kind TEXT NOT NULL,
-            description TEXT NOT NULL,
-            category TEXT,
-            amount REAL NOT NULL,
-            tx_date TEXT NOT NULL
-        )
-    """)
-
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS clients (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            email TEXT,
-            phone TEXT,
-            status TEXT DEFAULT 'Lead',
-            notes TEXT
-        )
-    """)
-
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS invoices (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            number TEXT,
-            client TEXT,
-            description TEXT,
-            amount REAL NOT NULL,
-            vat REAL DEFAULT 23,
-            status TEXT DEFAULT 'Pendente',
-            invoice_date TEXT NOT NULL
-        )
-    """)
-
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS products (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            sku TEXT,
-            sale_price REAL DEFAULT 0
-        )
-    """)
-
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS stock_lots (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            product_id INTEGER NOT NULL,
-            quantity REAL NOT NULL,
-            unit_cost REAL NOT NULL,
-            purchase_date TEXT NOT NULL
-        )
-    """)
-
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS sales (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            product_id INTEGER NOT NULL,
-            quantity REAL NOT NULL,
-            total REAL NOT NULL,
-            sale_date TEXT NOT NULL
-        )
-    """)
-
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS savings (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            current_amount REAL DEFAULT 0,
-            target_amount REAL NOT NULL
-        )
-    """)
-
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS tasks (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            title TEXT NOT NULL,
-            task_date TEXT NOT NULL,
-            category TEXT,
-            done INTEGER DEFAULT 0
-        )
-    """)
-
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS loans (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            principal REAL NOT NULL,
-            annual_rate REAL NOT NULL,
-            months INTEGER NOT NULL
-        )
-    """)
-
-    conn.commit()
-
-    # Dados iniciais apenas se a base estiver vazia
-    cur.execute("SELECT COUNT(*) AS c FROM savings")
-    if cur.fetchone()["c"] == 0:
-        cur.executemany(
-            "INSERT INTO savings (name,current_amount,target_amount) VALUES (?,?,?)",
-            [
-                ("Fundo de Emergência", 4500, 6000),
-                ("Férias e Viagens", 1200, 2000),
-                ("Investimentos / PPR", 800, 2000),
-            ],
-        )
-
-    cur.execute("SELECT COUNT(*) AS c FROM clients")
-    if cur.fetchone()["c"] == 0:
-        cur.executemany(
-            "INSERT INTO clients (name,email,phone,status,notes) VALUES (?,?,?,?,?)",
-            [
-                ("Cliente Exemplo", "cliente@email.pt", "910000000", "Lead", "Primeiro contacto"),
-                ("Empresa Demo Lda.", "geral@empresa.pt", "211000000", "Proposta", "Orçamento em análise"),
-            ],
-        )
-
-    cur.execute("SELECT COUNT(*) AS c FROM products")
-    if cur.fetchone()["c"] == 0:
-        cur.execute(
-            "INSERT INTO products (name,sku,sale_price) VALUES (?,?,?)",
-            ("Produto Demonstração", "AURA-001", 25.00),
-        )
-        product_id = cur.lastrowid
-
-        cur.executemany(
-            """
-            INSERT INTO stock_lots
-            (product_id,quantity,unit_cost,purchase_date)
-            VALUES (?,?,?,?)
-            """,
-            [
-                (product_id, 10, 10, "2026-01-10"),
-                (product_id, 20, 12, "2026-02-10"),
-            ],
-        )
-
-    conn.commit()
-    conn.close()
+BG = "#F8FAFC"
+WHITE = "#FFFFFF"
+TEXT = "#0F172A"
+MUTED = "#64748B"
+BORDER = "#E2E8F0"
+LIGHT_BLUE = "#EFF6FF"
+LIGHT_GREEN = "#ECFDF5"
+LIGHT_RED = "#FEF2F2"
+LIGHT_ORANGE = "#FFF7ED"
+LIGHT_PURPLE = "#F5F3FF"
 
 
 # ============================================================
 # FUNÇÕES AUXILIARES
 # ============================================================
 
-def money(value):
-    try:
-        return f"{float(value):,.2f} €".replace(",", "X").replace(".", ",").replace("X", ".")
-    except Exception:
-        return "0,00 €"
+def dinheiro(valor):
+    return f"{valor:,.2f} €".replace(",", "X").replace(".", ",").replace("X", ".")
 
 
-def safe_float(value):
+def numero(valor):
     try:
-        return float(str(value).replace(",", "."))
+        return float(str(valor).replace(",", ".").replace("€", "").strip())
     except Exception:
         return 0.0
 
 
-def today():
-    return date.today().isoformat()
+def opcao(texto):
+    """
+    Compatibilidade com diferentes versões do Flet.
+    """
+    try:
+        if hasattr(ft, "DropdownOption"):
+            return ft.DropdownOption(key=texto, text=texto)
+    except Exception:
+        pass
+
+    try:
+        return ft.dropdown.Option(texto)
+    except Exception:
+        return texto
+
+
+def botao(texto, on_click=None, icon=None, bgcolor=BLUE, width=None):
+    return ft.ElevatedButton(
+        content=texto,
+        icon=icon,
+        on_click=on_click,
+        bgcolor=bgcolor,
+        color=WHITE,
+        width=width,
+    )
+
+
+def botao_outline(texto, on_click=None, icon=None, width=None):
+    return ft.OutlinedButton(
+        content=texto,
+        icon=icon,
+        on_click=on_click,
+        width=width,
+    )
+
+
+def titulo(texto, subtitulo=None):
+    controls = [
+        ft.Text(
+            texto,
+            size=24,
+            weight=ft.FontWeight.BOLD,
+            color=TEXT,
+        )
+    ]
+
+    if subtitulo:
+        controls.append(
+            ft.Text(
+                subtitulo,
+                size=13,
+                color=MUTED,
+            )
+        )
+
+    return ft.Column(controls=controls, spacing=4)
+
+
+def card(content, padding=20, expand=False):
+    return ft.Container(
+        content=content,
+        bgcolor=WHITE,
+        padding=padding,
+        border_radius=16,
+        border=ft.Border.all(1, BORDER),
+        expand=expand,
+    )
+
+
+def metric_card(label, value, description, icon, color):
+    return ft.Container(
+        content=ft.Column(
+            controls=[
+                ft.Row(
+                    controls=[
+                        ft.Text(
+                            label,
+                            size=13,
+                            color=MUTED,
+                            weight=ft.FontWeight.W_600,
+                        ),
+                        ft.Container(
+                            content=ft.Icon(
+                                icon,
+                                color=color,
+                                size=21,
+                            ),
+                            bgcolor="#F1F5F9",
+                            padding=9,
+                            border_radius=10,
+                        ),
+                    ],
+                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                ),
+                ft.Text(
+                    value,
+                    size=26,
+                    weight=ft.FontWeight.BOLD,
+                    color=TEXT,
+                ),
+                ft.Text(
+                    description,
+                    size=12,
+                    color=MUTED,
+                ),
+            ],
+            spacing=8,
+        ),
+        bgcolor=WHITE,
+        padding=18,
+        border_radius=16,
+        border=ft.Border.all(1, BORDER),
+        expand=True,
+    )
 
 
 # ============================================================
-# APLICAÇÃO
+# APLICAÇÃO PRINCIPAL
 # ============================================================
 
 def main(page: ft.Page):
 
-    init_database()
-
-    page.title = "AURA 360 | Gestão Financeira & Empresarial"
-    page.bgcolor = "#F4F7FB"
-    page.padding = 12
+    page.title = "AURA 360 | Gestão Financeira e Empresarial"
+    page.bgcolor = BG
+    page.padding = 15
     page.scroll = ft.ScrollMode.AUTO
 
-    # --------------------------------------------------------
-    # ESTADO
-    # --------------------------------------------------------
+    try:
+        page.theme_mode = ft.ThemeMode.LIGHT
+    except Exception:
+        pass
 
-    current_profile = "Pessoal"
+    # ========================================================
+    # DADOS DA SESSÃO
+    # ========================================================
 
-    # --------------------------------------------------------
-    # COMPONENTES GERAIS
-    # --------------------------------------------------------
+    transacoes = [
+        {
+            "data": "10/08/2026",
+            "descricao": "Salário",
+            "categoria": "Rendimento",
+            "valor": 1850.00,
+            "tipo": "receita",
+        },
+        {
+            "data": "08/08/2026",
+            "descricao": "Supermercado",
+            "categoria": "Alimentação",
+            "valor": 124.50,
+            "tipo": "despesa",
+        },
+        {
+            "data": "07/08/2026",
+            "descricao": "Eletricidade",
+            "categoria": "Casa",
+            "valor": 72.30,
+            "tipo": "despesa",
+        },
+    ]
 
-    content_area = ft.Column(
+    metas = [
+        {
+            "nome": "Fundo de Emergência",
+            "atual": 4500,
+            "meta": 6000,
+            "cor": GREEN,
+        },
+        {
+            "nome": "Férias",
+            "atual": 1200,
+            "meta": 2500,
+            "cor": BLUE,
+        },
+        {
+            "nome": "Investimentos",
+            "atual": 800,
+            "meta": 3000,
+            "cor": PURPLE,
+        },
+    ]
+
+    faturas = [
+        {
+            "numero": "FT 2026/089",
+            "cliente": "Supermercado",
+            "valor": 124.50,
+            "estado": "Validada",
+        },
+        {
+            "numero": "FT 2026/102",
+            "cliente": "Farmácia Central",
+            "valor": 45.20,
+            "estado": "Validada",
+        },
+    ]
+
+    clientes = [
+        {
+            "nome": "João Silva",
+            "empresa": "JS Construções",
+            "telefone": "912345678",
+            "email": "joao@email.pt",
+            "estado": "Proposta",
+        },
+        {
+            "nome": "Maria Costa",
+            "empresa": "MC Interiors",
+            "telefone": "913456789",
+            "email": "maria@email.pt",
+            "estado": "Contacto",
+        },
+        {
+            "nome": "Pedro Santos",
+            "empresa": "PS Imobiliária",
+            "telefone": "914567890",
+            "email": "pedro@email.pt",
+            "estado": "Fechado",
+        },
+    ]
+
+    produtos = [
+        {
+            "codigo": "P001",
+            "nome": "Tinta Interior Premium",
+            "quantidade": 15,
+            "custo": 24.50,
+            "preco": 39.90,
+        },
+        {
+            "codigo": "P002",
+            "nome": "Tinta Exterior",
+            "quantidade": 8,
+            "custo": 31.00,
+            "preco": 49.90,
+        },
+        {
+            "codigo": "P003",
+            "nome": "Cola Pavimento",
+            "quantidade": 25,
+            "custo": 8.50,
+            "preco": 16.90,
+        },
+    ]
+
+    vendas = []
+
+    # ========================================================
+    # ESTADO DA NAVEGAÇÃO
+    # ========================================================
+
+    estado = {
+        "perfil": "pessoal",
+        "modulo": "dashboard",
+    }
+
+    conteudo = ft.Column(
+        expand=True,
         spacing=15,
+    )
+
+    # ========================================================
+    # AURA AI
+    # ========================================================
+
+    ai_client = None
+
+    if OpenAI and OPENAI_API_KEY:
+        try:
+            ai_client = OpenAI(api_key=OPENAI_API_KEY)
+        except Exception:
+            ai_client = None
+
+    ai_previous_response = None
+
+    ai_messages = ft.Column(
+        spacing=12,
+        scroll=ft.ScrollMode.AUTO,
         expand=True,
     )
 
-    page_title = ft.Text(
-        "AURA 360",
-        size=26,
+    ai_input = ft.TextField(
+        hint_text="Pergunta ao AURA AI...",
+        expand=True,
+        multiline=True,
+        min_lines=1,
+        max_lines=4,
+        border_radius=12,
+        border_color=BORDER,
+    )
+
+    ai_status = ft.Text(
+        "● IA ONLINE" if ai_client else "● MODO ASSISTENTE LOCAL",
+        size=11,
+        color=GREEN if ai_client else ORANGE,
         weight=ft.FontWeight.BOLD,
-        color="#0F172A",
     )
 
-    page_subtitle = ft.Text(
-        "Gestão financeira inteligente",
-        size=13,
-        color="#64748B",
-    )
-
-    status_message = ft.Text(
-        "",
-        size=13,
-        color="#16A34A",
-    )
-
-    def notify(message, color="#16A34A"):
-        status_message.value = message
-        status_message.color = color
-        page.update()
-
-    def card(title, value, subtitle="", color="#2563EB", icon=ft.Icons.ANALYTICS):
-        return ft.Container(
-            bgcolor="#FFFFFF",
-            padding=18,
-            border_radius=14,
-            border=ft.Border.all(1, "#E2E8F0"),
-            content=ft.Column(
-                [
-                    ft.Row(
-                        [
-                            ft.Text(
-                                title,
-                                size=13,
-                                color="#64748B",
-                                weight=ft.FontWeight.W_600,
-                            ),
-                            ft.Icon(icon, color=color, size=22),
-                        ],
-                        alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-                    ),
-                    ft.Text(
-                        value,
-                        size=24,
-                        weight=ft.FontWeight.BOLD,
-                        color="#0F172A",
-                    ),
-                    ft.Text(
-                        subtitle,
-                        size=12,
-                        color="#64748B",
-                    ),
-                ]
-            ),
+    def adicionar_mensagem_utilizador(texto):
+        ai_messages.controls.append(
+            ft.Container(
+                content=ft.Text(
+                    texto,
+                    size=14,
+                    color=TEXT,
+                ),
+                bgcolor="#DBEAFE",
+                padding=13,
+                border_radius=12,
+            )
         )
 
-    def button(text, on_click, color="#2563EB", icon=None):
-        kwargs = {
-            "content": ft.Text(
-                text,
-                color="#FFFFFF",
-                weight=ft.FontWeight.W_600,
+    def adicionar_mensagem_ai(texto):
+        ai_messages.controls.append(
+            ft.Container(
+                content=ft.Column(
+                    controls=[
+                        ft.Row(
+                            controls=[
+                                ft.Icon(
+                                    ft.Icons.AUTO_AWESOME,
+                                    color=BLUE,
+                                    size=18,
+                                ),
+                                ft.Text(
+                                    "AURA AI",
+                                    weight=ft.FontWeight.BOLD,
+                                    color=BLUE,
+                                ),
+                            ]
+                        ),
+                        ft.Markdown(
+                            value=texto,
+                            selectable=True,
+                            auto_follow_links=True,
+                        ),
+                    ],
+                    spacing=6,
+                ),
+                bgcolor=WHITE,
+                padding=14,
+                border_radius=12,
+                border=ft.Border.all(1, BORDER),
+            )
+        )
+
+    def resposta_local(pergunta):
+        p = pergunta.lower()
+
+        # Calculadora simples
+        if any(x in p for x in ["quanto é", "quanto e", "calcula", "calcular"]):
+            numeros = re.findall(r"\d+(?:[.,]\d+)?", p)
+
+            if len(numeros) >= 2:
+                try:
+                    a = float(numeros[0].replace(",", "."))
+                    b = float(numeros[1].replace(",", "."))
+
+                    if "+" in p or "somar" in p:
+                        return f"### Resultado\n\n**{a + b:.2f}**"
+
+                    if "-" in p or "menos" in p:
+                        return f"### Resultado\n\n**{a - b:.2f}**"
+
+                    if "*" in p or "vezes" in p:
+                        return f"### Resultado\n\n**{a * b:.2f}**"
+
+                    if "/" in p or "dividir" in p:
+                        if b != 0:
+                            return f"### Resultado\n\n**{a / b:.2f}**"
+                except Exception:
+                    pass
+
+        if "irs" in p or "imposto" in p:
+            return """
+### IRS
+
+Posso ajudar-te a organizar o IRS, despesas, faturas e deduções.
+
+Posso também:
+- analisar despesas;
+- explicar conceitos fiscais;
+- calcular valores;
+- indicar sites oficiais;
+- pesquisar informação atualizada quando a AURA AI estiver ligada à Internet.
+
+**Nota:** questões fiscais devem ser confirmadas nas fontes oficiais ou com um contabilista certificado.
+"""
+
+        if "credito" in p or "crédito" in p or "empréstimo" in p:
+            return """
+### Crédito
+
+Posso ajudar a analisar:
+- taxa de esforço;
+- prestação mensal;
+- amortização;
+- consolidação;
+- custo total;
+- impacto de uma amortização extraordinária.
+
+Se quiseres, diz-me:
+
+**rendimento mensal + prestações atuais + saldo em dívida + taxa de juro + prazo restante.**
+"""
+
+        if "poupanca" in p or "poupança" in p:
+            return """
+### Poupança
+
+Uma boa estratégia começa por separar:
+
+1. despesas essenciais;
+2. despesas variáveis;
+3. fundo de emergência;
+4. investimento;
+5. amortização de dívida.
+
+A AURA 360 também permite criar metas e acompanhar automaticamente o progresso.
+"""
+
+        if "empresa" in p or "negocio" in p or "negócio" in p:
+            return """
+### Gestão Empresarial
+
+Posso ajudar-te com:
+
+- clientes;
+- vendas;
+- CRM;
+- orçamentos;
+- margem;
+- stock;
+- FIFO;
+- tesouraria;
+- previsão financeira;
+- impostos.
+
+Também posso analisar os números que introduzires na aplicação.
+"""
+
+        if "orcamento" in p or "orçamento" in p:
+            return """
+### Orçamentos
+
+Posso calcular:
+
+**materiais + mão de obra + margem + IVA = preço recomendado.**
+
+Também posso ajudar a comparar uma proposta com o custo estimado e calcular a margem comercial.
+"""
+
+        return """
+Olá! Eu sou a **AURA AI**, o assistente inteligente da AURA 360.
+
+Posso ajudar-te com:
+
+💰 Finanças pessoais  
+💳 Crédito e amortizações  
+📊 Orçamentos  
+🏢 Empresas  
+👥 CRM  
+📦 Stock e FIFO  
+🧾 Faturas  
+📈 Previsões financeiras  
+💶 Impostos  
+🧮 Cálculos  
+🌐 Pesquisa na Internet  
+
+Experimenta perguntar:
+
+**"Como posso reduzir a minha taxa de esforço?"**
+
+ou
+
+**"Calcula uma margem de 25% sobre 1800€."**
+"""
+
+    def obter_contexto():
+        receitas = sum(
+            t["valor"]
+            for t in transacoes
+            if t["tipo"] == "receita"
+        )
+
+        despesas = sum(
+            t["valor"]
+            for t in transacoes
+            if t["tipo"] == "despesa"
+        )
+
+        stock_valor = sum(
+            p["quantidade"] * p["custo"]
+            for p in produtos
+        )
+
+        return f"""
+CONTEXTO ATUAL DA AURA 360
+
+Perfil ativo: {estado["perfil"]}
+
+Finanças pessoais:
+Receitas registadas: {dinheiro(receitas)}
+Despesas registadas: {dinheiro(despesas)}
+Saldo calculado: {dinheiro(receitas - despesas)}
+
+Metas:
+{metas}
+
+Faturas:
+{faturas}
+
+CRM:
+{clientes}
+
+Inventário:
+Produtos: {len(produtos)}
+Valor aproximado do stock pelo custo: {dinheiro(stock_valor)}
+
+Vendas:
+{vendas}
+"""
+
+    def perguntar_ai(pergunta):
+
+        nonlocal ai_previous_response
+
+        if not ai_client:
+            return resposta_local(pergunta)
+
+        try:
+            instrucoes = """
+És a AURA AI, o assistente oficial da plataforma AURA 360.
+
+Responde sempre em português de Portugal.
+
+És um assistente profissional de:
+- finanças pessoais;
+- gestão empresarial;
+- crédito;
+- poupança;
+- investimento;
+- orçamento;
+- CRM;
+- vendas;
+- inventário;
+- FIFO;
+- tesouraria;
+- impostos;
+- produtividade.
+
+REGRAS:
+
+1. Conversa naturalmente com o utilizador.
+2. Não respondas sempre com a mesma frase.
+3. Usa os dados fornecidos pela aplicação quando forem relevantes.
+4. Faz cálculos quando necessário.
+5. Explica os cálculos.
+6. Quando a pergunta depender de informação atual, pesquisa na Internet.
+7. Quando pesquisares, apresenta fontes e links úteis.
+8. Dá preferência a fontes oficiais para assuntos fiscais, legais e institucionais.
+9. Nunca inventes links.
+10. Não apresentes aconselhamento financeiro, fiscal ou jurídico como garantia profissional.
+11. Se não tiveres informação suficiente, pergunta os dados que faltam.
+12. Usa Markdown para apresentar respostas bonitas e organizadas.
+13. Sê objetivo, mas completo.
+14. Se o utilizador pedir uma comparação, cria uma tabela.
+15. Se o utilizador pedir um cálculo, mostra o resultado claramente.
+"""
+
+            contexto = obter_contexto()
+
+            input_text = (
+                contexto
+                + "\n\nPERGUNTA DO UTILIZADOR:\n"
+                + pergunta
+            )
+
+            kwargs = {
+                "model": AI_MODEL,
+                "instructions": instrucoes,
+                "input": input_text,
+                "tools": [
+                    {
+                        "type": "web_search"
+                    }
+                ],
+            }
+
+            if ai_previous_response:
+                kwargs["previous_response_id"] = ai_previous_response
+
+            response = ai_client.responses.create(**kwargs)
+
+            ai_previous_response = response.id
+
+            texto = response.output_text
+
+            if not texto:
+                texto = "Não consegui gerar uma resposta neste momento."
+
+            return texto
+
+        except Exception as ex:
+            return (
+                "### AURA AI\n\n"
+                "A ligação à IA encontrou um problema temporário.\n\n"
+                f"`{str(ex)}`\n\n"
+                "Enquanto isso, posso continuar a funcionar em modo assistente local."
+            )
+
+    def enviar_ai(e=None):
+
+        pergunta = (ai_input.value or "").strip()
+
+        if not pergunta:
+            return
+
+        adicionar_mensagem_utilizador("👤 " + pergunta)
+
+        ai_input.value = ""
+
+        adicionar_mensagem_ai("⏳ Estou a analisar a tua pergunta...")
+
+        page.update()
+
+        def worker():
+
+            # remove indicador
+            if ai_messages.controls:
+                ai_messages.controls.pop()
+
+            resposta = perguntar_ai(pergunta)
+
+            adicionar_mensagem_ai(resposta)
+
+            page.update()
+
+        if hasattr(page, "run_thread"):
+            page.run_thread(worker)
+        else:
+            worker()
+
+    ai_input.on_submit = enviar_ai
+
+    ai_dialog = ft.AlertDialog(
+        modal=True,
+        title=ft.Row(
+            controls=[
+                ft.Icon(
+                    ft.Icons.AUTO_AWESOME,
+                    color=BLUE,
+                ),
+                ft.Column(
+                    controls=[
+                        ft.Text(
+                            "AURA AI",
+                            size=21,
+                            weight=ft.FontWeight.BOLD,
+                        ),
+                        ai_status,
+                    ],
+                    spacing=1,
+                ),
+            ]
+        ),
+        content=ft.Container(
+            content=ft.Column(
+                controls=[
+                    ai_messages,
+                    ft.Row(
+                        controls=[
+                            ai_input,
+                            ft.IconButton(
+                                icon=ft.Icons.SEND,
+                                icon_color=BLUE,
+                                on_click=enviar_ai,
+                            ),
+                        ]
+                    ),
+                ],
+                spacing=12,
             ),
-            "on_click": on_click,
-            "bgcolor": color,
-        }
+            width=600,
+            height=500,
+        ),
+    )
 
-        if icon is not None:
-            kwargs["icon"] = icon
+    def abrir_ai(e=None):
 
-        return ft.ElevatedButton(**kwargs)
+        if ai_dialog not in page.overlay:
+            page.overlay.append(ai_dialog)
 
-    def outline_button(text, on_click, icon=None):
-        kwargs = {
-            "content": ft.Text(
-                text,
-                color="#2563EB",
-            ),
-            "on_click": on_click,
-        }
-
-        if icon is not None:
-            kwargs["icon"] = icon
-
-        return ft.OutlinedButton(**kwargs)
+        ai_dialog.open = True
+        page.update()
 
     # ========================================================
     # DASHBOARD PESSOAL
     # ========================================================
 
-    def personal_dashboard():
+    def dashboard_pessoal():
 
-        conn = db()
-        cur = conn.cursor()
-
-        cur.execute(
-            "SELECT COALESCE(SUM(amount),0) AS total FROM transactions WHERE kind='Receita'"
+        receitas = sum(
+            t["valor"]
+            for t in transacoes
+            if t["tipo"] == "receita"
         )
-        receitas = cur.fetchone()["total"]
 
-        cur.execute(
-            "SELECT COALESCE(SUM(amount),0) AS total FROM transactions WHERE kind='Despesa'"
+        despesas = sum(
+            t["valor"]
+            for t in transacoes
+            if t["tipo"] == "despesa"
         )
-        despesas = cur.fetchone()["total"]
-
-        cur.execute(
-            "SELECT COALESCE(SUM(current_amount),0) AS total FROM savings"
-        )
-        poupanca = cur.fetchone()["total"]
-
-        conn.close()
 
         saldo = receitas - despesas
 
-        return ft.Column(
-            [
-                ft.Text(
-                    "📊 Dashboard Pessoal",
-                    size=22,
-                    weight=ft.FontWeight.BOLD,
-                    color="#0F172A",
-                ),
+        metas_progress = sum(
+            min(m["atual"] / m["meta"], 1)
+            for m in metas
+        ) / len(metas)
 
-                ft.Text(
-                    "Visão geral da tua vida financeira.",
-                    color="#64748B",
-                ),
+        lista = []
 
-                ft.ResponsiveRow(
-                    [
-                        ft.Container(
-                            card(
-                                "Receitas",
-                                money(receitas),
-                                "Total registado",
-                                "#16A34A",
-                                ft.Icons.TRENDING_UP,
-                            ),
-                            col={"sm": 12, "md": 4},
-                        ),
-                        ft.Container(
-                            card(
-                                "Despesas",
-                                money(despesas),
-                                "Total registado",
-                                "#DC2626",
-                                ft.Icons.TRENDING_DOWN,
-                            ),
-                            col={"sm": 12, "md": 4},
-                        ),
-                        ft.Container(
-                            card(
-                                "Saldo",
-                                money(saldo),
-                                "Receitas - despesas",
-                                "#2563EB",
-                                ft.Icons.ACCOUNT_BALANCE_WALLET,
-                            ),
-                            col={"sm": 12, "md": 4},
-                        ),
-                    ]
-                ),
+        for t in reversed(transacoes[-5:]):
+            cor = GREEN if t["tipo"] == "receita" else RED
+            sinal = "+" if t["tipo"] == "receita" else "-"
 
-                ft.ResponsiveRow(
-                    [
-                        ft.Container(
-                            card(
-                                "Poupança acumulada",
-                                money(poupanca),
-                                "Metas financeiras",
-                                "#7C3AED",
-                                ft.Icons.SAVINGS,
-                            ),
-                            col={"sm": 12, "md": 4},
-                        ),
-                        ft.Container(
-                            card(
-                                "Taxa de poupança",
-                                f"{((saldo / receitas) * 100):.1f}%"
-                                if receitas > 0
-                                else "0,0%",
-                                "Estimativa atual",
-                                "#0891B2",
-                                ft.Icons.PIE_CHART,
-                            ),
-                            col={"sm": 12, "md": 4},
-                        ),
-                    ]
-                ),
-
-                ft.Container(
-                    bgcolor="#FFFFFF",
-                    padding=20,
-                    border_radius=14,
-                    border=ft.Border.all(1, "#E2E8F0"),
-                    content=ft.Column(
-                        [
-                            ft.Text(
-                                "💡 Centro de Inteligência",
-                                size=17,
-                                weight=ft.FontWeight.BOLD,
-                            ),
-                            ft.Text(
-                                "Regista receitas e despesas regularmente para "
-                                "obter uma visão realista do teu saldo.",
-                                color="#64748B",
-                            ),
-                        ]
+            lista.append(
+                ft.ListTile(
+                    leading=ft.Icon(
+                        ft.Icons.ARROW_UPWARD
+                        if t["tipo"] == "receita"
+                        else ft.Icons.ARROW_DOWNWARD,
+                        color=cor,
                     ),
+                    title=ft.Text(
+                        t["descricao"],
+                        weight=ft.FontWeight.BOLD,
+                    ),
+                    subtitle=ft.Text(
+                        f"{t['data']} • {t['categoria']}"
+                    ),
+                    trailing=ft.Text(
+                        f"{sinal}{dinheiro(t['valor'])}",
+                        color=cor,
+                        weight=ft.FontWeight.BOLD,
+                    ),
+                )
+            )
+
+        return ft.Column(
+            controls=[
+                titulo(
+                    "Dashboard Pessoal",
+                    "Visão geral da tua saúde financeira.",
+                ),
+
+                ft.Row(
+                    controls=[
+                        metric_card(
+                            "Saldo",
+                            dinheiro(saldo),
+                            "Saldo calculado",
+                            ft.Icons.ACCOUNT_BALANCE_WALLET,
+                            BLUE,
+                        ),
+                        metric_card(
+                            "Receitas",
+                            dinheiro(receitas),
+                            "Total registado",
+                            ft.Icons.ARROW_UPWARD,
+                            GREEN,
+                        ),
+                        metric_card(
+                            "Despesas",
+                            dinheiro(despesas),
+                            "Total registado",
+                            ft.Icons.ARROW_DOWNWARD,
+                            RED,
+                        ),
+                    ],
+                    wrap=True,
+                    spacing=12,
+                ),
+
+                ft.Row(
+                    controls=[
+                        card(
+                            ft.Column(
+                                controls=[
+                                    ft.Text(
+                                        "Últimos movimentos",
+                                        size=17,
+                                        weight=ft.FontWeight.BOLD,
+                                    ),
+                                    *lista,
+                                ]
+                            ),
+                            expand=True,
+                        ),
+
+                        card(
+                            ft.Column(
+                                controls=[
+                                    ft.Text(
+                                        "Metas de poupança",
+                                        size=17,
+                                        weight=ft.FontWeight.BOLD,
+                                    ),
+                                    ft.ProgressBar(
+                                        value=metas_progress,
+                                        color=GREEN,
+                                        bgcolor="#E2E8F0",
+                                    ),
+                                    ft.Text(
+                                        f"{metas_progress * 100:.0f}% de progresso médio",
+                                        color=MUTED,
+                                    ),
+                                    botao(
+                                        "Gerir metas",
+                                        lambda e: navegar(
+                                            "pessoal",
+                                            "metas",
+                                        ),
+                                        ft.Icons.FLAG,
+                                        GREEN,
+                                    ),
+                                ],
+                                spacing=12,
+                            ),
+                            expand=True,
+                        ),
+                    ],
+                    wrap=True,
+                    spacing=12,
                 ),
             ],
             spacing=15,
         )
 
     # ========================================================
-    # RECEITAS / DESPESAS
+    # TRANSAÇÕES
     # ========================================================
 
-    def personal_transactions():
+    def transacoes_view():
 
-        description = ft.TextField(
+        descricao = ft.TextField(
             label="Descrição",
             expand=True,
         )
 
-        category = ft.TextField(
-            label="Categoria",
-            expand=True,
-        )
-
-        amount = ft.TextField(
+        valor = ft.TextField(
             label="Valor (€)",
-            width=160,
+            width=150,
         )
 
-        kind = ft.Dropdown(
-            label="Tipo",
-            width=170,
-            value="Despesa",
+        categoria = ft.Dropdown(
+            label="Categoria",
+            value="Alimentação",
             options=[
-                ft.dropdown.Option("Receita"),
-                ft.dropdown.Option("Despesa"),
+                opcao("Alimentação"),
+                opcao("Casa"),
+                opcao("Transportes"),
+                opcao("Saúde"),
+                opcao("Educação"),
+                opcao("Lazer"),
+                opcao("Rendimento"),
+                opcao("Outros"),
             ],
+            width=180,
         )
 
-        list_area = ft.Column(spacing=5)
+        tipo = ft.Dropdown(
+            label="Tipo",
+            value="despesa",
+            options=[
+                opcao("despesa"),
+                opcao("receita"),
+            ],
+            width=150,
+        )
 
-        def refresh():
+        lista = ft.Column()
 
-            list_area.controls.clear()
+        def atualizar():
 
-            conn = db()
-            rows = conn.execute(
-                """
-                SELECT * FROM transactions
-                ORDER BY tx_date DESC, id DESC
-                """
-            ).fetchall()
-            conn.close()
+            lista.controls.clear()
 
-            if not rows:
-                list_area.controls.append(
-                    ft.Text(
-                        "Ainda não existem movimentos registados.",
-                        color="#64748B",
-                    )
-                )
+            for t in reversed(transacoes):
 
-            for row in rows:
+                cor = GREEN if t["tipo"] == "receita" else RED
+                sinal = "+" if t["tipo"] == "receita" else "-"
 
-                color = "#16A34A" if row["kind"] == "Receita" else "#DC2626"
-
-                list_area.controls.append(
+                lista.controls.append(
                     ft.Container(
-                        bgcolor="#FFFFFF",
-                        padding=12,
-                        border_radius=10,
-                        border=ft.Border.all(1, "#E2E8F0"),
                         content=ft.Row(
-                            [
+                            controls=[
+                                ft.Icon(
+                                    ft.Icons.RECEIPT_LONG,
+                                    color=cor,
+                                ),
                                 ft.Column(
-                                    [
+                                    controls=[
                                         ft.Text(
-                                            row["description"],
+                                            t["descricao"],
                                             weight=ft.FontWeight.BOLD,
                                         ),
                                         ft.Text(
-                                            f"{row['category'] or 'Sem categoria'} • {row['tx_date']}",
+                                            f"{t['data']} • {t['categoria']}",
+                                            color=MUTED,
                                             size=12,
-                                            color="#64748B",
                                         ),
                                     ],
                                     expand=True,
                                 ),
                                 ft.Text(
-                                    f"{'+' if row['kind'] == 'Receita' else '-'} {money(row['amount'])}",
+                                    f"{sinal}{dinheiro(t['valor'])}",
+                                    color=cor,
                                     weight=ft.FontWeight.BOLD,
-                                    color=color,
                                 ),
                             ]
                         ),
+                        bgcolor=WHITE,
+                        padding=12,
+                        border_radius=10,
+                        border=ft.Border.all(1, BORDER),
                     )
                 )
 
             page.update()
 
-        def add_transaction(e):
+        def adicionar(e):
 
-            if not description.value or safe_float(amount.value) <= 0:
-                notify("Preenche a descrição e um valor válido.", "#DC2626")
+            v = numero(valor.value)
+
+            if not descricao.value or v <= 0:
                 return
 
-            conn = db()
-
-            conn.execute(
-                """
-                INSERT INTO transactions
-                (kind,description,category,amount,tx_date)
-                VALUES (?,?,?,?,?)
-                """,
-                (
-                    kind.value,
-                    description.value,
-                    category.value,
-                    safe_float(amount.value),
-                    today(),
-                ),
+            transacoes.append(
+                {
+                    "data": datetime.now().strftime("%d/%m/%Y"),
+                    "descricao": descricao.value,
+                    "categoria": categoria.value,
+                    "valor": v,
+                    "tipo": tipo.value,
+                }
             )
 
-            conn.commit()
-            conn.close()
+            descricao.value = ""
+            valor.value = ""
 
-            description.value = ""
-            category.value = ""
-            amount.value = ""
+            atualizar()
 
-            notify("Movimento registado com sucesso.")
-            refresh()
-
-        refresh()
+        atualizar()
 
         return ft.Column(
-            [
-                ft.Text(
-                    "💰 Receitas & Despesas",
-                    size=22,
-                    weight=ft.FontWeight.BOLD,
+            controls=[
+                titulo(
+                    "Movimentos Financeiros",
+                    "Regista receitas e despesas.",
                 ),
 
-                ft.Container(
-                    bgcolor="#FFFFFF",
-                    padding=18,
-                    border_radius=14,
-                    border=ft.Border.all(1, "#E2E8F0"),
-                    content=ft.Column(
-                        [
+                card(
+                    ft.Column(
+                        controls=[
                             ft.Text(
                                 "Novo movimento",
                                 size=17,
                                 weight=ft.FontWeight.BOLD,
                             ),
-
                             ft.Row(
-                                [
-                                    description,
-                                    category,
-                                    amount,
-                                    kind,
+                                controls=[
+                                    descricao,
+                                    valor,
+                                    categoria,
+                                    tipo,
                                 ],
                                 wrap=True,
                             ),
-
-                            button(
-                                "Registar movimento",
-                                add_transaction,
-                                "#2563EB",
+                            botao(
+                                "Adicionar movimento",
+                                adicionar,
                                 ft.Icons.ADD,
                             ),
-                        ]
-                    ),
+                        ],
+                        spacing=12,
+                    )
                 ),
 
-                status_message,
-                ft.Text(
-                    "Movimentos registados",
-                    size=17,
-                    weight=ft.FontWeight.BOLD,
-                ),
-                list_area,
-            ]
+                lista,
+            ],
+            spacing=15,
         )
 
     # ========================================================
-    # CRÉDITOS
+    # CRÉDITO
     # ========================================================
 
-    def personal_loans():
+    def credito_view():
 
-        principal = ft.TextField(
+        rendimento = ft.TextField(
+            label="Rendimento líquido mensal (€)",
+            value="1800",
+        )
+
+        prestacao = ft.TextField(
+            label="Prestações atuais (€)",
+            value="650",
+        )
+
+        divida = ft.TextField(
             label="Capital em dívida (€)",
-            value="10000",
-            width=200,
+            value="85000",
         )
 
-        rate = ft.TextField(
+        taxa = ft.TextField(
             label="Taxa anual (%)",
-            value="6",
-            width=160,
+            value="4.5",
         )
 
-        months = ft.TextField(
-            label="Prazo restante (meses)",
-            value="60",
-            width=180,
-        )
+        resultado = ft.Column()
 
-        extra = ft.TextField(
-            label="Amortização extraordinária (€)",
-            value="1000",
-            width=210,
-        )
+        def calcular(e):
 
-        result = ft.Column()
+            r = numero(rendimento.value)
+            p = numero(prestacao.value)
+            d = numero(divida.value)
+            j = numero(taxa.value)
 
-        def calculate(e):
-
-            p = safe_float(principal.value)
-            r = safe_float(rate.value) / 100 / 12
-            n = int(safe_float(months.value))
-            extra_value = safe_float(extra.value)
-
-            if p <= 0 or n <= 0:
-                result.controls = [
+            if r <= 0:
+                resultado.controls = [
                     ft.Text(
-                        "Introduz valores válidos.",
-                        color="#DC2626",
+                        "Indica um rendimento válido.",
+                        color=RED,
                     )
                 ]
                 page.update()
                 return
 
-            if r == 0:
-                payment = p / n
-                new_payment = max((p - extra_value) / n, 0)
+            esforco = (p / r) * 100
+
+            nova_prestacao = p * 0.85
+            poupanca = p - nova_prestacao
+
+            if esforco <= 35:
+                cor = GREEN
+                mensagem = "Zona financeira confortável."
+            elif esforco <= 50:
+                cor = ORANGE
+                mensagem = "Zona de atenção. Analisa os créditos."
             else:
-                payment = p * (r * (1 + r) ** n) / ((1 + r) ** n - 1)
+                cor = RED
+                mensagem = "Taxa de esforço elevada."
 
-                new_p = max(p - extra_value, 0)
-
-                new_payment = (
-                    new_p
-                    * (r * (1 + r) ** n)
-                    / ((1 + r) ** n - 1)
-                    if new_p > 0
-                    else 0
-                )
-
-            interest_without = max(payment * n - p, 0)
-
-            new_p = max(p - extra_value, 0)
-
-            if r == 0:
-                new_interest = 0
-            else:
-                new_interest = max(new_payment * n - new_p, 0)
-
-            saving = max(interest_without - new_interest, 0)
-
-            result.controls = [
-                ft.Divider(),
-                ft.Text(
-                    f"Prestação estimada atual: {money(payment)}",
-                    size=17,
-                    weight=ft.FontWeight.BOLD,
-                ),
-                ft.Text(
-                    f"Prestação após amortização: {money(new_payment)}",
-                    color="#2563EB",
-                ),
-                ft.Text(
-                    f"Juros estimados evitados: {money(saving)}",
-                    color="#16A34A",
-                    weight=ft.FontWeight.BOLD,
-                ),
+            resultado.controls = [
                 ft.Container(
-                    bgcolor="#ECFDF5",
-                    padding=15,
-                    border_radius=10,
-                    content=ft.Text(
-                        "A simulação é indicativa. O resultado real depende "
-                        "do contrato, taxa, seguros e condições do banco.",
-                        color="#166534",
+                    content=ft.Column(
+                        controls=[
+                            ft.Text(
+                                f"Taxa de esforço: {esforco:.1f}%",
+                                size=22,
+                                weight=ft.FontWeight.BOLD,
+                                color=cor,
+                            ),
+                            ft.Text(mensagem),
+                            ft.Divider(),
+                            ft.Text(
+                                f"Prestação atual: {dinheiro(p)}"
+                            ),
+                            ft.Text(
+                                f"Simulação de redução de 15%: {dinheiro(nova_prestacao)}"
+                            ),
+                            ft.Text(
+                                f"Poupança mensal estimada: {dinheiro(poupanca)}",
+                                color=GREEN,
+                                weight=ft.FontWeight.BOLD,
+                            ),
+                            ft.Text(
+                                f"Capital indicado: {dinheiro(d)}"
+                            ),
+                            ft.Text(
+                                f"Taxa anual indicada: {j:.2f}%"
+                            ),
+                            ft.Text(
+                                "Esta simulação é indicativa e não constitui uma proposta bancária.",
+                                size=11,
+                                color=MUTED,
+                            ),
+                        ]
                     ),
-                ),
+                    bgcolor="#F8FAFC",
+                    padding=16,
+                    border_radius=12,
+                )
             ]
 
             page.update()
 
         return ft.Column(
-            [
-                ft.Text(
-                    "💳 Simulador de Crédito & Amortização",
-                    size=22,
-                    weight=ft.FontWeight.BOLD,
+            controls=[
+                titulo(
+                    "Crédito & Amortização",
+                    "Analisa taxa de esforço e impacto de uma redução de prestação.",
                 ),
 
-                ft.Text(
-                    "Simula o impacto de uma amortização extraordinária.",
-                    color="#64748B",
-                ),
-
-                ft.Container(
-                    bgcolor="#FFFFFF",
-                    padding=20,
-                    border_radius=14,
-                    border=ft.Border.all(1, "#E2E8F0"),
-                    content=ft.Column(
-                        [
+                card(
+                    ft.Column(
+                        controls=[
                             ft.Row(
-                                [
-                                    principal,
-                                    rate,
-                                    months,
-                                    extra,
+                                controls=[
+                                    rendimento,
+                                    prestacao,
+                                    divida,
+                                    taxa,
                                 ],
                                 wrap=True,
                             ),
-
-                            button(
-                                "Calcular amortização",
-                                calculate,
-                                "#2563EB",
+                            botao(
+                                "Calcular",
+                                calcular,
                                 ft.Icons.CALCULATE,
                             ),
-
-                            result,
-                        ]
-                    ),
-                ),
-            ]
-        )
-
-    # ========================================================
-    # METAS DE POUPANÇA
-    # ========================================================
-
-    def personal_savings():
-
-        name = ft.TextField(
-            label="Nome da meta",
-            expand=True,
-        )
-
-        target = ft.TextField(
-            label="Objetivo (€)",
-            width=170,
-        )
-
-        current = ft.TextField(
-            label="Valor atual (€)",
-            width=170,
-        )
-
-        goals_area = ft.Column()
-
-        def refresh():
-
-            goals_area.controls.clear()
-
-            conn = db()
-            rows = conn.execute(
-                "SELECT * FROM savings ORDER BY id DESC"
-            ).fetchall()
-            conn.close()
-
-            for row in rows:
-
-                percentage = 0
-
-                if row["target_amount"] > 0:
-                    percentage = min(
-                        row["current_amount"] / row["target_amount"],
-                        1,
+                        ],
+                        spacing=15,
                     )
+                ),
 
-                goals_area.controls.append(
-                    ft.Container(
-                        bgcolor="#FFFFFF",
-                        padding=16,
-                        border_radius=12,
-                        border=ft.Border.all(1, "#E2E8F0"),
-                        content=ft.Column(
-                            [
+                resultado,
+            ],
+            spacing=15,
+        )
+
+    # ========================================================
+    # METAS
+    # ========================================================
+
+    def metas_view():
+
+        lista = ft.Column()
+
+        def atualizar():
+
+            lista.controls.clear()
+
+            for m in metas:
+
+                progresso = min(
+                    m["atual"] / m["meta"],
+                    1,
+                )
+
+                lista.controls.append(
+                    card(
+                        ft.Column(
+                            controls=[
                                 ft.Row(
-                                    [
+                                    controls=[
                                         ft.Text(
-                                            row["name"],
+                                            m["nome"],
                                             weight=ft.FontWeight.BOLD,
                                         ),
                                         ft.Text(
-                                            f"{money(row['current_amount'])} / "
-                                            f"{money(row['target_amount'])}",
-                                            color="#2563EB",
+                                            f"{dinheiro(m['atual'])} / {dinheiro(m['meta'])}",
+                                            color=m["cor"],
                                             weight=ft.FontWeight.BOLD,
                                         ),
                                     ],
                                     alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                                 ),
-
                                 ft.ProgressBar(
-                                    value=percentage,
-                                    color="#2563EB",
+                                    value=progresso,
+                                    color=m["cor"],
                                     bgcolor="#E2E8F0",
                                 ),
-
                                 ft.Text(
-                                    f"{percentage * 100:.0f}% concluído",
+                                    f"{progresso * 100:.0f}% concluído",
+                                    color=MUTED,
                                     size=12,
-                                    color="#64748B",
                                 ),
                             ]
-                        ),
+                        )
                     )
                 )
 
             page.update()
 
-        def add_goal(e):
-
-            if not name.value or safe_float(target.value) <= 0:
-                notify("Preenche o nome e o objetivo.", "#DC2626")
-                return
-
-            conn = db()
-
-            conn.execute(
-                """
-                INSERT INTO savings
-                (name,current_amount,target_amount)
-                VALUES (?,?,?)
-                """,
-                (
-                    name.value,
-                    safe_float(current.value),
-                    safe_float(target.value),
-                ),
-            )
-
-            conn.commit()
-            conn.close()
-
-            name.value = ""
-            target.value = ""
-            current.value = ""
-
-            notify("Meta criada.")
-            refresh()
-
-        refresh()
+        atualizar()
 
         return ft.Column(
-            [
-                ft.Text(
-                    "🎯 Metas de Poupança",
-                    size=22,
-                    weight=ft.FontWeight.BOLD,
+            controls=[
+                titulo(
+                    "Metas de Poupança",
+                    "Transforma objetivos financeiros em progresso mensurável.",
                 ),
-
-                ft.Container(
-                    bgcolor="#FFFFFF",
-                    padding=18,
-                    border_radius=14,
-                    border=ft.Border.all(1, "#E2E8F0"),
-                    content=ft.Column(
-                        [
-                            ft.Row(
-                                [
-                                    name,
-                                    target,
-                                    current,
-                                ],
-                                wrap=True,
-                            ),
-
-                            button(
-                                "Criar meta",
-                                add_goal,
-                                "#16A34A",
-                                ft.Icons.SAVINGS,
-                            ),
-                        ]
-                    ),
-                ),
-
-                goals_area,
-            ]
+                lista,
+            ],
+            spacing=15,
         )
 
     # ========================================================
-    # AGENDA
+    # CALENDÁRIO / AGENDA
     # ========================================================
 
-    def personal_agenda():
+    def agenda_view():
 
-        title = ft.TextField(
-            label="Tarefa / obrigação",
+        tarefas = [
+            ("15/08/2026", "Rever despesas do mês"),
+            ("20/08/2026", "Confirmar faturas"),
+            ("31/08/2026", "Fecho financeiro mensal"),
+            ("15/09/2026", "Revisão de orçamento"),
+        ]
+
+        return ft.Column(
+            controls=[
+                titulo(
+                    "Agenda & Calendário Financeiro",
+                    "Organiza tarefas, prazos e revisões.",
+                ),
+                card(
+                    ft.Column(
+                        controls=[
+                            ft.Text(
+                                "Próximos eventos",
+                                size=18,
+                                weight=ft.FontWeight.BOLD,
+                            ),
+                            *[
+                                ft.ListTile(
+                                    leading=ft.Icon(
+                                        ft.Icons.EVENT,
+                                        color=BLUE,
+                                    ),
+                                    title=ft.Text(tarefa),
+                                    subtitle=ft.Text(data),
+                                )
+                                for data, tarefa in tarefas
+                            ],
+                        ]
+                    )
+                ),
+            ],
+            spacing=15,
+        )
+
+    # ========================================================
+    # FATURAS
+    # ========================================================
+
+    def faturas_view():
+
+        numero_fatura = ft.TextField(
+            label="Número da fatura",
             expand=True,
         )
 
-        task_date = ft.TextField(
-            label="Data",
-            value=today(),
-            width=180,
+        entidade = ft.TextField(
+            label="Entidade",
+            expand=True,
         )
 
-        category = ft.TextField(
-            label="Categoria",
-            width=180,
+        valor_fatura = ft.TextField(
+            label="Valor (€)",
+            width=150,
         )
 
-        tasks_area = ft.Column()
+        lista = ft.Column()
 
-        def refresh():
+        def atualizar():
 
-            tasks_area.controls.clear()
+            lista.controls.clear()
 
-            conn = db()
+            for f in faturas:
 
-            rows = conn.execute(
-                """
-                SELECT * FROM tasks
-                ORDER BY done ASC, task_date ASC
-                """
-            ).fetchall()
-
-            conn.close()
-
-            for row in rows:
-
-                def mark_done(e, task_id=row["id"]):
-                    conn2 = db()
-                    conn2.execute(
-                        "UPDATE tasks SET done=1 WHERE id=?",
-                        (task_id,),
-                    )
-                    conn2.commit()
-                    conn2.close()
-                    refresh()
-
-                tasks_area.controls.append(
+                lista.controls.append(
                     ft.Container(
-                        bgcolor="#FFFFFF",
-                        padding=12,
-                        border_radius=10,
-                        border=ft.Border.all(1, "#E2E8F0"),
                         content=ft.Row(
-                            [
+                            controls=[
                                 ft.Icon(
-                                    ft.Icons.CHECK_CIRCLE
-                                    if row["done"]
-                                    else ft.Icons.EVENT,
-                                    color="#16A34A"
-                                    if row["done"]
-                                    else "#2563EB",
+                                    ft.Icons.RECEIPT_LONG,
+                                    color=BLUE,
                                 ),
-
                                 ft.Column(
-                                    [
+                                    controls=[
                                         ft.Text(
-                                            row["title"],
+                                            f["numero"],
                                             weight=ft.FontWeight.BOLD,
                                         ),
                                         ft.Text(
-                                            f"{row['task_date']} • "
-                                            f"{row['category'] or 'Geral'}",
-                                            size=12,
-                                            color="#64748B",
+                                            f["cliente"],
+                                            color=MUTED,
                                         ),
                                     ],
                                     expand=True,
                                 ),
-
-                                (
-                                    ft.Text(
-                                        "Concluída",
-                                        color="#16A34A",
-                                    )
-                                    if row["done"]
-                                    else outline_button(
-                                        "Concluir",
-                                        mark_done,
-                                        ft.Icons.CHECK,
-                                    )
+                                ft.Text(
+                                    dinheiro(f["valor"]),
+                                    weight=ft.FontWeight.BOLD,
+                                ),
+                                ft.Container(
+                                    content=ft.Text(
+                                        f["estado"],
+                                        color=GREEN,
+                                        size=11,
+                                        weight=ft.FontWeight.BOLD,
+                                    ),
+                                    bgcolor=LIGHT_GREEN,
+                                    padding=7,
+                                    border_radius=8,
                                 ),
                             ]
                         ),
+                        bgcolor=WHITE,
+                        padding=14,
+                        border_radius=12,
+                        border=ft.Border.all(1, BORDER),
                     )
                 )
 
             page.update()
 
-        def add_task(e):
+        def adicionar(e):
 
-            if not title.value:
-                notify("Escreve uma tarefa.", "#DC2626")
+            v = numero(valor_fatura.value)
+
+            if not numero_fatura.value or v <= 0:
                 return
 
-            conn = db()
-
-            conn.execute(
-                """
-                INSERT INTO tasks
-                (title,task_date,category)
-                VALUES (?,?,?)
-                """,
-                (
-                    title.value,
-                    task_date.value or today(),
-                    category.value,
-                ),
+            faturas.append(
+                {
+                    "numero": numero_fatura.value,
+                    "cliente": entidade.value or "Entidade",
+                    "valor": v,
+                    "estado": "Pendente",
+                }
             )
 
-            conn.commit()
-            conn.close()
+            numero_fatura.value = ""
+            entidade.value = ""
+            valor_fatura.value = ""
 
-            title.value = ""
-            category.value = ""
+            atualizar()
 
-            notify("Tarefa adicionada.")
-            refresh()
-
-        refresh()
+        atualizar()
 
         return ft.Column(
-            [
-                ft.Text(
-                    "📅 Agenda & Calendário Fiscal",
-                    size=22,
-                    weight=ft.FontWeight.BOLD,
+            controls=[
+                titulo(
+                    "Faturas & Documentos",
+                    "Centraliza faturas, recibos e despesas.",
                 ),
 
-                ft.Container(
-                    bgcolor="#FFFFFF",
-                    padding=18,
-                    border_radius=14,
-                    border=ft.Border.all(1, "#E2E8F0"),
-                    content=ft.Column(
-                        [
+                card(
+                    ft.Column(
+                        controls=[
+                            ft.Text(
+                                "Nova fatura",
+                                weight=ft.FontWeight.BOLD,
+                            ),
                             ft.Row(
-                                [
-                                    title,
-                                    task_date,
-                                    category,
+                                controls=[
+                                    numero_fatura,
+                                    entidade,
+                                    valor_fatura,
                                 ],
                                 wrap=True,
                             ),
-
-                            button(
-                                "Adicionar tarefa",
-                                add_task,
-                                "#7C3AED",
-                                ft.Icons.ADD_TASK,
+                            botao(
+                                "Registar fatura",
+                                adicionar,
+                                ft.Icons.ADD,
                             ),
                         ]
-                    ),
+                    )
                 ),
 
-                tasks_area,
-            ]
+                lista,
+            ],
+            spacing=15,
         )
 
     # ========================================================
-    # CRM EMPRESARIAL
+    # CRM
     # ========================================================
 
-    def business_crm():
+    def crm_view():
 
-        name = ft.TextField(
-            label="Nome / Empresa",
+        nome = ft.TextField(
+            label="Nome do cliente",
+            expand=True,
+        )
+
+        empresa = ft.TextField(
+            label="Empresa",
             expand=True,
         )
 
@@ -1109,1363 +1460,843 @@ def main(page: ft.Page):
             expand=True,
         )
 
-        phone = ft.TextField(
-            label="Telefone",
+        estado_cliente = ft.Dropdown(
+            label="Estado",
+            value="Contacto",
+            options=[
+                opcao("Contacto"),
+                opcao("Proposta"),
+                opcao("Negociação"),
+                opcao("Fechado"),
+                opcao("Perdido"),
+            ],
             width=170,
         )
 
-        status = ft.Dropdown(
-            label="Estado",
-            width=180,
-            value="Lead",
-            options=[
-                ft.dropdown.Option("Lead"),
-                ft.dropdown.Option("Contacto"),
-                ft.dropdown.Option("Proposta"),
-                ft.dropdown.Option("Negociação"),
-                ft.dropdown.Option("Cliente"),
-                ft.dropdown.Option("Perdido"),
-            ],
-        )
+        lista = ft.Column()
 
-        clients_area = ft.Column()
+        def atualizar():
 
-        def refresh():
+            lista.controls.clear()
 
-            clients_area.controls.clear()
+            for c in clientes:
 
-            conn = db()
-
-            rows = conn.execute(
-                "SELECT * FROM clients ORDER BY id DESC"
-            ).fetchall()
-
-            conn.close()
-
-            for row in rows:
-
-                clients_area.controls.append(
-                    ft.Container(
-                        bgcolor="#FFFFFF",
-                        padding=14,
-                        border_radius=12,
-                        border=ft.Border.all(1, "#E2E8F0"),
-                        content=ft.Row(
-                            [
-                                ft.Icon(
-                                    ft.Icons.PERSON,
-                                    color="#2563EB",
+                lista.controls.append(
+                    card(
+                        ft.Row(
+                            controls=[
+                                ft.Container(
+                                    content=ft.Icon(
+                                        ft.Icons.PERSON,
+                                        color=BLUE,
+                                    ),
+                                    bgcolor=LIGHT_BLUE,
+                                    padding=10,
+                                    border_radius=10,
                                 ),
                                 ft.Column(
-                                    [
+                                    controls=[
                                         ft.Text(
-                                            row["name"],
+                                            c["nome"],
                                             weight=ft.FontWeight.BOLD,
                                         ),
                                         ft.Text(
-                                            f"{row['email'] or '-'} • "
-                                            f"{row['phone'] or '-'}",
+                                            c["empresa"],
+                                            color=MUTED,
+                                        ),
+                                        ft.Text(
+                                            c["email"],
                                             size=12,
-                                            color="#64748B",
+                                            color=MUTED,
                                         ),
                                     ],
                                     expand=True,
                                 ),
                                 ft.Container(
-                                    bgcolor="#EFF6FF",
+                                    content=ft.Text(
+                                        c["estado"],
+                                        weight=ft.FontWeight.BOLD,
+                                        size=11,
+                                    ),
+                                    bgcolor=LIGHT_BLUE,
                                     padding=8,
                                     border_radius=8,
-                                    content=ft.Text(
-                                        row["status"],
-                                        color="#2563EB",
-                                        size=12,
-                                        weight=ft.FontWeight.BOLD,
-                                    ),
                                 ),
                             ]
-                        ),
+                        )
                     )
                 )
 
             page.update()
 
-        def add_client(e):
+        def adicionar(e):
 
-            if not name.value:
-                notify("Indica o nome do cliente.", "#DC2626")
+            if not nome.value:
                 return
 
-            conn = db()
-
-            conn.execute(
-                """
-                INSERT INTO clients
-                (name,email,phone,status)
-                VALUES (?,?,?,?)
-                """,
-                (
-                    name.value,
-                    email.value,
-                    phone.value,
-                    status.value,
-                ),
+            clientes.append(
+                {
+                    "nome": nome.value,
+                    "empresa": empresa.value or "Particular",
+                    "telefone": "",
+                    "email": email.value,
+                    "estado": estado_cliente.value,
+                }
             )
 
-            conn.commit()
-            conn.close()
-
-            name.value = ""
+            nome.value = ""
+            empresa.value = ""
             email.value = ""
-            phone.value = ""
 
-            notify("Cliente criado.")
-            refresh()
+            atualizar()
 
-        refresh()
+        atualizar()
 
         return ft.Column(
-            [
-                ft.Text(
-                    "👥 CRM — Clientes & Vendas",
-                    size=22,
-                    weight=ft.FontWeight.BOLD,
+            controls=[
+                titulo(
+                    "CRM — Clientes & Vendas",
+                    "Controla contactos e pipeline comercial.",
                 ),
 
-                ft.Container(
-                    bgcolor="#FFFFFF",
-                    padding=18,
-                    border_radius=14,
-                    border=ft.Border.all(1, "#E2E8F0"),
-                    content=ft.Column(
-                        [
+                card(
+                    ft.Column(
+                        controls=[
                             ft.Text(
                                 "Novo cliente",
                                 weight=ft.FontWeight.BOLD,
                             ),
-
                             ft.Row(
-                                [
-                                    name,
+                                controls=[
+                                    nome,
+                                    empresa,
                                     email,
-                                    phone,
-                                    status,
+                                    estado_cliente,
                                 ],
                                 wrap=True,
                             ),
-
-                            button(
+                            botao(
                                 "Adicionar cliente",
-                                add_client,
-                                "#2563EB",
+                                adicionar,
                                 ft.Icons.PERSON_ADD,
                             ),
                         ]
-                    ),
+                    )
                 ),
 
-                clients_area,
-            ]
+                lista,
+            ],
+            spacing=15,
         )
 
     # ========================================================
     # ORÇAMENTOS EMPRESARIAIS
     # ========================================================
 
-    def business_quotes():
+    def orcamentos_view():
 
-        service = ft.Dropdown(
+        servico = ft.Dropdown(
             label="Serviço",
-            width=280,
             value="Pintura",
             options=[
-                ft.dropdown.Option("Pintura"),
-                ft.dropdown.Option("Pavimento"),
-                ft.dropdown.Option("Pladur"),
-                ft.dropdown.Option("Remodelação"),
-                ft.dropdown.Option("Consultoria"),
-                ft.dropdown.Option("Outro"),
+                opcao("Pintura"),
+                opcao("Pavimento"),
+                opcao("Pladur"),
+                opcao("Casa de banho"),
+                opcao("Outro"),
             ],
+            width=220,
         )
 
         area = ft.TextField(
-            label="Quantidade / Área",
+            label="Área / quantidade",
             value="50",
-            width=170,
+            width=160,
         )
 
-        price = ft.TextField(
-            label="Preço unitário (€)",
+        custo = ft.TextField(
+            label="Custo base por unidade (€)",
             value="20",
-            width=180,
+            width=200,
         )
 
-        vat = ft.TextField(
+        margem = ft.TextField(
+            label="Margem (%)",
+            value="25",
+            width=150,
+        )
+
+        iva = ft.TextField(
             label="IVA (%)",
             value="23",
+            width=120,
+        )
+
+        resultado = ft.Column()
+
+        def calcular(e):
+
+            a = numero(area.value)
+            c = numero(custo.value)
+            m = numero(margem.value)
+            i = numero(iva.value)
+
+            custo_total = a * c
+            lucro = custo_total * (m / 100)
+            venda_sem_iva = custo_total + lucro
+            valor_iva = venda_sem_iva * (i / 100)
+            total = venda_sem_iva + valor_iva
+
+            resultado.controls = [
+                card(
+                    ft.Column(
+                        controls=[
+                            ft.Text(
+                                f"Orçamento — {servico.value}",
+                                size=18,
+                                weight=ft.FontWeight.BOLD,
+                            ),
+                            ft.Divider(),
+                            ft.Text(
+                                f"Custo base: {dinheiro(custo_total)}"
+                            ),
+                            ft.Text(
+                                f"Margem: {dinheiro(lucro)}"
+                            ),
+                            ft.Text(
+                                f"Preço sem IVA: {dinheiro(venda_sem_iva)}"
+                            ),
+                            ft.Text(
+                                f"IVA: {dinheiro(valor_iva)}"
+                            ),
+                            ft.Text(
+                                f"TOTAL: {dinheiro(total)}",
+                                size=23,
+                                weight=ft.FontWeight.BOLD,
+                                color=BLUE,
+                            ),
+                        ]
+                    )
+                )
+            ]
+
+            page.update()
+
+        return ft.Column(
+            controls=[
+                titulo(
+                    "Gerador de Orçamentos",
+                    "Calcula custo, margem, IVA e preço final.",
+                ),
+
+                card(
+                    ft.Column(
+                        controls=[
+                            ft.Row(
+                                controls=[
+                                    servico,
+                                    area,
+                                    custo,
+                                    margem,
+                                    iva,
+                                ],
+                                wrap=True,
+                            ),
+                            botao(
+                                "Gerar orçamento",
+                                calcular,
+                                ft.Icons.CALCULATE,
+                            ),
+                        ],
+                        spacing=15,
+                    )
+                ),
+
+                resultado,
+            ],
+            spacing=15,
+        )
+
+    # ========================================================
+    # POS + FIFO
+    # ========================================================
+
+    def pos_view():
+
+        produto = ft.Dropdown(
+            label="Produto",
+            options=[
+                opcao(p["nome"])
+                for p in produtos
+            ],
+            value=produtos[0]["nome"],
+            width=280,
+        )
+
+        quantidade = ft.TextField(
+            label="Quantidade",
+            value="1",
             width=130,
         )
 
-        result = ft.Column()
+        lista = ft.Column()
 
-        def calculate(e):
-
-            quantity = safe_float(area.value)
-            unit_price = safe_float(price.value)
-            vat_rate = safe_float(vat.value)
-
-            if quantity <= 0 or unit_price < 0:
-                notify("Introduz valores válidos.", "#DC2626")
-                return
-
-            subtotal = quantity * unit_price
-            tax = subtotal * vat_rate / 100
-            total = subtotal + tax
-
-            result.controls = [
-                ft.Divider(),
-
-                ft.Text(
-                    f"Serviço: {service.value}",
-                    weight=ft.FontWeight.BOLD,
-                    size=16,
-                ),
-
-                ft.Text(
-                    f"Subtotal: {money(subtotal)}"
-                ),
-
-                ft.Text(
-                    f"IVA ({vat_rate:.2f}%): {money(tax)}"
-                ),
-
-                ft.Container(
-                    bgcolor="#ECFDF5",
-                    padding=15,
-                    border_radius=10,
-                    content=ft.Text(
-                        f"TOTAL DA PROPOSTA: {money(total)}",
-                        size=20,
-                        weight=ft.FontWeight.BOLD,
-                        color="#166534",
-                    ),
-                ),
-            ]
-
-            page.update()
-
-        return ft.Column(
-            [
-                ft.Text(
-                    "🧾 Gerador de Orçamentos",
-                    size=22,
-                    weight=ft.FontWeight.BOLD,
-                ),
-
-                ft.Text(
-                    "Cria estimativas comerciais com cálculo automático de IVA.",
-                    color="#64748B",
-                ),
-
-                ft.Container(
-                    bgcolor="#FFFFFF",
-                    padding=20,
-                    border_radius=14,
-                    border=ft.Border.all(1, "#E2E8F0"),
-                    content=ft.Column(
-                        [
-                            ft.Row(
-                                [
-                                    service,
-                                    area,
-                                    price,
-                                    vat,
-                                ],
-                                wrap=True,
-                            ),
-
-                            button(
-                                "Calcular orçamento",
-                                calculate,
-                                "#2563EB",
-                                ft.Icons.RECEIPT_LONG,
-                            ),
-
-                            result,
-                        ]
-                    ),
-                ),
-            ]
+        resultado = ft.Text(
+            "Selecione um produto e registe a venda.",
+            color=MUTED,
         )
 
-    # ========================================================
-    # FATURAS EMPRESARIAIS
-    # ========================================================
+        def atualizar():
 
-    def business_invoices():
+            lista.controls.clear()
 
-        number = ft.TextField(
-            label="N.º Fatura",
-            width=160,
-        )
+            for p in produtos:
 
-        client = ft.TextField(
-            label="Cliente",
-            expand=True,
-        )
+                valor_stock = p["quantidade"] * p["custo"]
 
-        description = ft.TextField(
-            label="Descrição",
-            expand=True,
-        )
-
-        amount = ft.TextField(
-            label="Valor sem IVA",
-            width=160,
-        )
-
-        vat = ft.TextField(
-            label="IVA %",
-            value="23",
-            width=100,
-        )
-
-        invoices_area = ft.Column()
-
-        def refresh():
-
-            invoices_area.controls.clear()
-
-            conn = db()
-
-            rows = conn.execute(
-                """
-                SELECT * FROM invoices
-                ORDER BY id DESC
-                """
-            ).fetchall()
-
-            conn.close()
-
-            for row in rows:
-
-                total = row["amount"] * (1 + row["vat"] / 100)
-
-                invoices_area.controls.append(
+                lista.controls.append(
                     ft.Container(
-                        bgcolor="#FFFFFF",
-                        padding=14,
-                        border_radius=12,
-                        border=ft.Border.all(1, "#E2E8F0"),
                         content=ft.Row(
-                            [
-                                ft.Icon(
-                                    ft.Icons.RECEIPT_LONG,
-                                    color="#2563EB",
-                                ),
-
-                                ft.Column(
-                                    [
-                                        ft.Text(
-                                            f"{row['number'] or 'Sem número'} • "
-                                            f"{row['client'] or 'Cliente'}",
-                                            weight=ft.FontWeight.BOLD,
-                                        ),
-                                        ft.Text(
-                                            f"{row['description'] or ''} • "
-                                            f"{row['invoice_date']}",
-                                            size=12,
-                                            color="#64748B",
-                                        ),
-                                    ],
-                                    expand=True,
-                                ),
-
-                                ft.Column(
-                                    [
-                                        ft.Text(
-                                            money(total),
-                                            weight=ft.FontWeight.BOLD,
-                                        ),
-                                        ft.Text(
-                                            row["status"],
-                                            size=11,
-                                            color="#F59E0B"
-                                            if row["status"] == "Pendente"
-                                            else "#16A34A",
-                                        ),
-                                    ]
-                                ),
-                            ]
-                        ),
-                    )
-                )
-
-            page.update()
-
-        def add_invoice(e):
-
-            value = safe_float(amount.value)
-
-            if value <= 0:
-                notify("Indica um valor válido.", "#DC2626")
-                return
-
-            conn = db()
-
-            conn.execute(
-                """
-                INSERT INTO invoices
-                (number,client,description,amount,vat,status,invoice_date)
-                VALUES (?,?,?,?,?,?,?)
-                """,
-                (
-                    number.value,
-                    client.value,
-                    description.value,
-                    value,
-                    safe_float(vat.value),
-                    "Pendente",
-                    today(),
-                ),
-            )
-
-            conn.commit()
-            conn.close()
-
-            number.value = ""
-            client.value = ""
-            description.value = ""
-            amount.value = ""
-
-            notify("Fatura registada.")
-            refresh()
-
-        refresh()
-
-        return ft.Column(
-            [
-                ft.Text(
-                    "📄 Faturas & Fiscalidade",
-                    size=22,
-                    weight=ft.FontWeight.BOLD,
-                ),
-
-                ft.Container(
-                    bgcolor="#FFFFFF",
-                    padding=18,
-                    border_radius=14,
-                    border=ft.Border.all(1, "#E2E8F0"),
-                    content=ft.Column(
-                        [
-                            ft.Row(
-                                [
-                                    number,
-                                    client,
-                                    description,
-                                    amount,
-                                    vat,
-                                ],
-                                wrap=True,
-                            ),
-
-                            button(
-                                "Registar fatura",
-                                add_invoice,
-                                "#2563EB",
-                                ft.Icons.ADD,
-                            ),
-                        ]
-                    ),
-                ),
-
-                invoices_area,
-            ]
-        )
-
-    # ========================================================
-    # POS + INVENTÁRIO FIFO
-    # ========================================================
-
-    def business_pos():
-
-        product_select = ft.Dropdown(
-            label="Produto",
-            expand=True,
-        )
-
-        quantity = ft.TextField(
-            label="Quantidade",
-            value="1",
-            width=140,
-        )
-
-        stock_area = ft.Column()
-
-        def load_products():
-
-            conn = db()
-
-            rows = conn.execute(
-                """
-                SELECT
-                    p.id,
-                    p.name,
-                    p.sku,
-                    p.sale_price,
-                    COALESCE(SUM(s.quantity),0) AS stock
-                FROM products p
-                LEFT JOIN stock_lots s ON s.product_id = p.id
-                GROUP BY p.id
-                ORDER BY p.name
-                """
-            ).fetchall()
-
-            conn.close()
-
-            product_select.options = [
-                ft.dropdown.Option(
-                    str(row["id"]),
-                    row["name"],
-                )
-                for row in rows
-            ]
-
-            if rows and not product_select.value:
-                product_select.value = str(rows[0]["id"])
-
-            stock_area.controls.clear()
-
-            for row in rows:
-
-                stock_area.controls.append(
-                    ft.Container(
-                        bgcolor="#FFFFFF",
-                        padding=12,
-                        border_radius=10,
-                        border=ft.Border.all(1, "#E2E8F0"),
-                        content=ft.Row(
-                            [
+                            controls=[
                                 ft.Icon(
                                     ft.Icons.INVENTORY_2,
-                                    color="#7C3AED",
+                                    color=BLUE,
                                 ),
                                 ft.Column(
-                                    [
+                                    controls=[
                                         ft.Text(
-                                            row["name"],
+                                            p["nome"],
                                             weight=ft.FontWeight.BOLD,
                                         ),
                                         ft.Text(
-                                            f"SKU: {row['sku'] or '-'}",
-                                            size=11,
-                                            color="#64748B",
+                                            f"Código: {p['codigo']}",
+                                            color=MUTED,
+                                            size=12,
                                         ),
                                     ],
                                     expand=True,
                                 ),
                                 ft.Text(
-                                    f"Stock: {row['stock']:.0f}",
+                                    f"{p['quantidade']} un.",
                                     weight=ft.FontWeight.BOLD,
-                                    color="#16A34A"
-                                    if row["stock"] > 0
-                                    else "#DC2626",
+                                ),
+                                ft.Text(
+                                    dinheiro(valor_stock),
+                                    color=GREEN,
                                 ),
                             ]
                         ),
+                        bgcolor=WHITE,
+                        padding=12,
+                        border_radius=10,
+                        border=ft.Border.all(1, BORDER),
                     )
                 )
 
             page.update()
 
-        def sell(e):
+        def vender(e):
 
-            if not product_select.value:
-                notify("Seleciona um produto.", "#DC2626")
+            q = int(numero(quantidade.value))
+
+            if q <= 0:
                 return
 
-            qty = safe_float(quantity.value)
+            selecionado = None
 
-            if qty <= 0:
-                notify("Quantidade inválida.", "#DC2626")
-                return
-
-            product_id = int(product_select.value)
-
-            conn = db()
-
-            product = conn.execute(
-                "SELECT * FROM products WHERE id=?",
-                (product_id,),
-            ).fetchone()
-
-            lots = conn.execute(
-                """
-                SELECT * FROM stock_lots
-                WHERE product_id=? AND quantity>0
-                ORDER BY purchase_date ASC, id ASC
-                """,
-                (product_id,),
-            ).fetchall()
-
-            available = sum(row["quantity"] for row in lots)
-
-            if available < qty:
-                conn.close()
-                notify(
-                    f"Stock insuficiente. Disponível: {available:.2f}",
-                    "#DC2626",
-                )
-                return
-
-            remaining = qty
-            cost = 0
-
-            for lot in lots:
-
-                if remaining <= 0:
+            for p in produtos:
+                if p["nome"] == produto.value:
+                    selecionado = p
                     break
 
-                used = min(remaining, lot["quantity"])
+            if not selecionado:
+                return
 
-                cost += used * lot["unit_cost"]
+            if q > selecionado["quantidade"]:
+                resultado.value = "Stock insuficiente."
+                resultado.color = RED
+                page.update()
+                return
 
-                conn.execute(
-                    """
-                    UPDATE stock_lots
-                    SET quantity=quantity-?
-                    WHERE id=?
-                    """,
-                    (used, lot["id"]),
-                )
+            # FIFO:
+            # a quantidade sai do lote mais antigo disponível.
+            selecionado["quantidade"] -= q
 
-                remaining -= used
+            total = q * selecionado["preco"]
+            custo = q * selecionado["custo"]
+            margem = total - custo
 
-            sale_total = qty * product["sale_price"]
-
-            conn.execute(
-                """
-                INSERT INTO sales
-                (product_id,quantity,total,sale_date)
-                VALUES (?,?,?,?)
-                """,
-                (
-                    product_id,
-                    qty,
-                    sale_total,
-                    today(),
-                ),
+            vendas.append(
+                {
+                    "data": datetime.now().strftime("%d/%m/%Y"),
+                    "produto": selecionado["nome"],
+                    "quantidade": q,
+                    "venda": total,
+                    "custo": custo,
+                    "margem": margem,
+                }
             )
 
-            conn.commit()
-            conn.close()
-
-            margin = sale_total - cost
-
-            notify(
-                f"Venda registada: {money(sale_total)} | Margem estimada: {money(margin)}"
+            resultado.value = (
+                f"Venda registada: {q} × {selecionado['nome']} = "
+                f"{dinheiro(total)} | Margem: {dinheiro(margem)}"
             )
+            resultado.color = GREEN
 
-            load_products()
+            atualizar()
+
+        atualizar()
 
         return ft.Column(
-            [
-                ft.Text(
-                    "🛒 POS & Inventário FIFO",
-                    size=22,
-                    weight=ft.FontWeight.BOLD,
+            controls=[
+                titulo(
+                    "POS & Inventário FIFO",
+                    "Regista vendas e baixa automaticamente o stock.",
                 ),
 
-                ft.Text(
-                    "As vendas consomem automaticamente os lotes mais antigos primeiro.",
-                    color="#64748B",
-                ),
-
-                ft.Container(
-                    bgcolor="#FFFFFF",
-                    padding=18,
-                    border_radius=14,
-                    border=ft.Border.all(1, "#E2E8F0"),
-                    content=ft.Column(
-                        [
+                card(
+                    ft.Column(
+                        controls=[
                             ft.Row(
-                                [
-                                    product_select,
-                                    quantity,
+                                controls=[
+                                    produto,
+                                    quantidade,
+                                    botao(
+                                        "Registar venda",
+                                        vender,
+                                        ft.Icons.POINT_OF_SALE,
+                                        GREEN,
+                                    ),
                                 ],
                                 wrap=True,
                             ),
-
-                            button(
-                                "Registar venda",
-                                sell,
-                                "#16A34A",
-                                ft.Icons.POINT_OF_SALE,
-                            ),
+                            resultado,
                         ]
-                    ),
+                    )
                 ),
 
                 ft.Text(
                     "Inventário atual",
-                    size=17,
+                    size=18,
                     weight=ft.FontWeight.BOLD,
                 ),
 
-                stock_area,
-            ]
+                lista,
+            ],
+            spacing=15,
         )
 
     # ========================================================
-    # STOCK / COMPRA
+    # PREVISÃO FINANCEIRA
     # ========================================================
 
-    def business_stock():
+    def previsao_view():
 
-        name = ft.TextField(
-            label="Produto",
-            expand=True,
+        receita = ft.TextField(
+            label="Receita mensal prevista (€)",
+            value="8000",
         )
 
-        sku = ft.TextField(
-            label="SKU",
-            width=150,
+        custos = ft.TextField(
+            label="Custos mensais (€)",
+            value="5000",
         )
 
-        sale_price = ft.TextField(
-            label="Preço venda",
-            width=150,
+        crescimento = ft.TextField(
+            label="Crescimento mensal (%)",
+            value="3",
         )
 
-        quantity = ft.TextField(
-            label="Quantidade comprada",
-            width=170,
+        meses = ft.TextField(
+            label="Meses",
+            value="12",
         )
 
-        unit_cost = ft.TextField(
-            label="Custo unitário",
-            width=160,
-        )
+        resultado = ft.Column()
 
-        result = ft.Text()
+        def calcular(e):
 
-        def add_stock(e):
+            r = numero(receita.value)
+            c = numero(custos.value)
+            g = numero(crescimento.value) / 100
+            n = int(numero(meses.value))
 
-            if not name.value:
-                notify("Indica o produto.", "#DC2626")
+            if n <= 0:
                 return
 
-            conn = db()
+            receita_total = 0
+            custo_total = 0
+            receita_atual = r
 
-            product = conn.execute(
-                """
-                SELECT * FROM products
-                WHERE name=?
-                """,
-                (name.value,),
-            ).fetchone()
+            for _ in range(n):
+                receita_total += receita_atual
+                custo_total += c
+                receita_atual *= 1 + g
 
-            if product is None:
-
-                conn.execute(
-                    """
-                    INSERT INTO products
-                    (name,sku,sale_price)
-                    VALUES (?,?,?)
-                    """,
-                    (
-                        name.value,
-                        sku.value,
-                        safe_float(sale_price.value),
-                    ),
-                )
-
-                product_id = conn.execute(
-                    "SELECT last_insert_rowid()"
-                ).fetchone()[0]
-
-            else:
-
-                product_id = product["id"]
-
-                conn.execute(
-                    """
-                    UPDATE products
-                    SET sale_price=?
-                    WHERE id=?
-                    """,
-                    (
-                        safe_float(sale_price.value),
-                        product_id,
-                    ),
-                )
-
-            conn.execute(
-                """
-                INSERT INTO stock_lots
-                (product_id,quantity,unit_cost,purchase_date)
-                VALUES (?,?,?,?)
-                """,
-                (
-                    product_id,
-                    safe_float(quantity.value),
-                    safe_float(unit_cost.value),
-                    today(),
-                ),
+            lucro = receita_total - custo_total
+            margem = (
+                (lucro / receita_total) * 100
+                if receita_total
+                else 0
             )
 
-            conn.commit()
-            conn.close()
+            resultado.controls = [
+                card(
+                    ft.Column(
+                        controls=[
+                            ft.Text(
+                                "Previsão financeira",
+                                size=18,
+                                weight=ft.FontWeight.BOLD,
+                            ),
+                            ft.Text(
+                                f"Receita acumulada: {dinheiro(receita_total)}"
+                            ),
+                            ft.Text(
+                                f"Custos acumulados: {dinheiro(custo_total)}"
+                            ),
+                            ft.Text(
+                                f"Resultado estimado: {dinheiro(lucro)}",
+                                size=22,
+                                weight=ft.FontWeight.BOLD,
+                                color=GREEN if lucro >= 0 else RED,
+                            ),
+                            ft.Text(
+                                f"Margem estimada: {margem:.1f}%"
+                            ),
+                        ]
+                    )
+                )
+            ]
 
-            result.value = "Entrada de stock registada."
-            result.color = "#16A34A"
-
-            name.value = ""
-            sku.value = ""
-            sale_price.value = ""
-            quantity.value = ""
-            unit_cost.value = ""
-
-            notify("Stock atualizado.")
             page.update()
 
         return ft.Column(
-            [
-                ft.Text(
-                    "📦 Entrada de Stock",
-                    size=22,
-                    weight=ft.FontWeight.BOLD,
+            controls=[
+                titulo(
+                    "Previsão Financeira",
+                    "Projeta receita, custos, resultado e margem.",
                 ),
 
-                ft.Container(
-                    bgcolor="#FFFFFF",
-                    padding=18,
-                    border_radius=14,
-                    border=ft.Border.all(1, "#E2E8F0"),
-                    content=ft.Column(
-                        [
+                card(
+                    ft.Column(
+                        controls=[
                             ft.Row(
-                                [
-                                    name,
-                                    sku,
-                                    sale_price,
-                                    quantity,
-                                    unit_cost,
+                                controls=[
+                                    receita,
+                                    custos,
+                                    crescimento,
+                                    meses,
                                 ],
                                 wrap=True,
                             ),
-
-                            button(
-                                "Registar compra / entrada",
-                                add_stock,
-                                "#7C3AED",
-                                ft.Icons.ADD_BOX,
+                            botao(
+                                "Calcular previsão",
+                                calcular,
+                                ft.Icons.TRENDING_UP,
                             ),
-
-                            result,
                         ]
-                    ),
+                    )
                 ),
-            ]
+
+                resultado,
+            ],
+            spacing=15,
         )
 
     # ========================================================
-    # PREVISÃO FINANCEIRA EMPRESARIAL
+    # IMPOSTOS
     # ========================================================
 
-    def business_forecast():
+    def impostos_view():
 
-        monthly_revenue = ft.TextField(
-            label="Faturação mensal média (€)",
-            value="10000",
-            width=220,
+        faturacao = ft.TextField(
+            label="Faturação (€)",
+            value="50000",
         )
 
-        monthly_costs = ft.TextField(
-            label="Custos mensais (€)",
-            value="6000",
-            width=200,
+        despesas_empresa = ft.TextField(
+            label="Despesas dedutíveis (€)",
+            value="28000",
         )
 
-        months = ft.TextField(
-            label="Horizonte (meses)",
-            value="12",
-            width=150,
-        )
-
-        tax_rate = ft.TextField(
-            label="Taxa fiscal estimada (%)",
+        taxa_imposto = ft.TextField(
+            label="Taxa estimada (%)",
             value="21",
-            width=190,
         )
 
-        result = ft.Column()
+        resultado = ft.Column()
 
-        def calculate(e):
+        def calcular(e):
 
-            revenue = safe_float(monthly_revenue.value)
-            costs = safe_float(monthly_costs.value)
-            horizon = int(safe_float(months.value))
-            tax = safe_float(tax_rate.value)
+            f = numero(faturacao.value)
+            d = numero(despesas_empresa.value)
+            t = numero(taxa_imposto.value)
 
-            if revenue < 0 or costs < 0 or horizon <= 0:
-                notify("Valores inválidos.", "#DC2626")
-                return
+            lucro = max(f - d, 0)
+            imposto = lucro * t / 100
+            depois_imposto = lucro - imposto
 
-            annual_revenue = revenue * horizon
-            annual_costs = costs * horizon
-            operating_profit = annual_revenue - annual_costs
-            estimated_tax = max(operating_profit, 0) * tax / 100
-            net = operating_profit - estimated_tax
-
-            result.controls = [
-                ft.Divider(),
-
-                ft.Text(
-                    f"Faturação projetada: {money(annual_revenue)}",
-                    weight=ft.FontWeight.BOLD,
-                ),
-
-                ft.Text(
-                    f"Custos projetados: {money(annual_costs)}"
-                ),
-
-                ft.Text(
-                    f"Resultado antes de imposto: {money(operating_profit)}"
-                ),
-
-                ft.Text(
-                    f"Imposto estimado: {money(estimated_tax)}",
-                    color="#DC2626",
-                ),
-
-                ft.Container(
-                    bgcolor="#ECFDF5",
-                    padding=15,
-                    border_radius=10,
-                    content=ft.Text(
-                        f"Resultado estimado após imposto: {money(net)}",
-                        size=19,
-                        weight=ft.FontWeight.BOLD,
-                        color="#166534",
-                    ),
-                ),
-
-                ft.Text(
-                    "Esta é uma projeção financeira e não substitui o apuramento "
-                    "fiscal efetuado por contabilista certificado.",
-                    size=11,
-                    color="#64748B",
-                ),
+            resultado.controls = [
+                card(
+                    ft.Column(
+                        controls=[
+                            ft.Text(
+                                "Simulação fiscal",
+                                size=18,
+                                weight=ft.FontWeight.BOLD,
+                            ),
+                            ft.Text(
+                                f"Resultado antes de imposto: {dinheiro(lucro)}"
+                            ),
+                            ft.Text(
+                                f"Imposto estimado: {dinheiro(imposto)}",
+                                color=RED,
+                            ),
+                            ft.Text(
+                                f"Resultado após imposto: {dinheiro(depois_imposto)}",
+                                size=22,
+                                weight=ft.FontWeight.BOLD,
+                                color=GREEN,
+                            ),
+                            ft.Text(
+                                "Simulação indicativa. A tributação real depende do enquadramento fiscal da empresa.",
+                                size=11,
+                                color=MUTED,
+                            ),
+                        ]
+                    )
+                )
             ]
 
             page.update()
 
         return ft.Column(
-            [
-                ft.Text(
-                    "📈 Previsão Financeira & Fiscal",
-                    size=22,
-                    weight=ft.FontWeight.BOLD,
+            controls=[
+                titulo(
+                    "Simulador de Impostos",
+                    "Estimativa simples de resultado e imposto.",
                 ),
 
-                ft.Container(
-                    bgcolor="#FFFFFF",
-                    padding=20,
-                    border_radius=14,
-                    border=ft.Border.all(1, "#E2E8F0"),
-                    content=ft.Column(
-                        [
+                card(
+                    ft.Column(
+                        controls=[
                             ft.Row(
-                                [
-                                    monthly_revenue,
-                                    monthly_costs,
-                                    months,
-                                    tax_rate,
+                                controls=[
+                                    faturacao,
+                                    despesas_empresa,
+                                    taxa_imposto,
                                 ],
                                 wrap=True,
                             ),
-
-                            button(
-                                "Gerar previsão",
-                                calculate,
-                                "#0891B2",
-                                ft.Icons.INSIGHTS,
+                            botao(
+                                "Calcular imposto",
+                                calcular,
+                                ft.Icons.ACCOUNT_BALANCE,
                             ),
-
-                            result,
                         ]
-                    ),
+                    )
                 ),
-            ]
+
+                resultado,
+            ],
+            spacing=15,
         )
 
     # ========================================================
     # DASHBOARD EMPRESARIAL
     # ========================================================
 
-    def business_dashboard():
+    def dashboard_empresa():
 
-        conn = db()
+        stock_valor = sum(
+            p["quantidade"] * p["custo"]
+            for p in produtos
+        )
 
-        clients = conn.execute(
-            "SELECT COUNT(*) AS c FROM clients"
-        ).fetchone()["c"]
+        vendas_total = sum(
+            v["venda"]
+            for v in vendas
+        )
 
-        invoices = conn.execute(
-            "SELECT COUNT(*) AS c FROM invoices"
-        ).fetchone()["c"]
-
-        sales = conn.execute(
-            "SELECT COALESCE(SUM(total),0) AS total FROM sales"
-        ).fetchone()["total"]
-
-        stock = conn.execute(
-            """
-            SELECT COALESCE(SUM(quantity),0) AS total
-            FROM stock_lots
-            """
-        ).fetchone()["total"]
-
-        conn.close()
+        margem_total = sum(
+            v["margem"]
+            for v in vendas
+        )
 
         return ft.Column(
-            [
-                ft.Text(
-                    "🏢 Dashboard Empresarial",
-                    size=22,
-                    weight=ft.FontWeight.BOLD,
+            controls=[
+                titulo(
+                    "Dashboard Empresarial",
+                    "Visão geral do negócio.",
                 ),
 
-                ft.Text(
-                    "Centro de controlo da atividade da empresa.",
-                    color="#64748B",
+                ft.Row(
+                    controls=[
+                        metric_card(
+                            "Clientes",
+                            str(len(clientes)),
+                            "Contactos no CRM",
+                            ft.Icons.PEOPLE,
+                            BLUE,
+                        ),
+                        metric_card(
+                            "Stock",
+                            dinheiro(stock_valor),
+                            "Valor pelo custo",
+                            ft.Icons.INVENTORY_2,
+                            PURPLE,
+                        ),
+                        metric_card(
+                            "Vendas",
+                            dinheiro(vendas_total),
+                            "Vendas registadas",
+                            ft.Icons.POINT_OF_SALE,
+                            GREEN,
+                        ),
+                        metric_card(
+                            "Margem",
+                            dinheiro(margem_total),
+                            "Margem das vendas",
+                            ft.Icons.TRENDING_UP,
+                            ORANGE,
+                        ),
+                    ],
+                    wrap=True,
+                    spacing=12,
                 ),
 
-                ft.ResponsiveRow(
-                    [
-                        ft.Container(
-                            card(
-                                "Clientes",
-                                str(clients),
-                                "CRM",
-                                "#2563EB",
-                                ft.Icons.GROUP,
-                            ),
-                            col={"sm": 12, "md": 3},
-                        ),
-
-                        ft.Container(
-                            card(
-                                "Faturas",
-                                str(invoices),
-                                "Documentos registados",
-                                "#7C3AED",
-                                ft.Icons.RECEIPT,
-                            ),
-                            col={"sm": 12, "md": 3},
-                        ),
-
-                        ft.Container(
-                            card(
-                                "Vendas POS",
-                                money(sales),
-                                "Vendas registadas",
-                                "#16A34A",
-                                ft.Icons.POINT_OF_SALE,
-                            ),
-                            col={"sm": 12, "md": 3},
-                        ),
-
-                        ft.Container(
-                            card(
-                                "Stock",
-                                f"{stock:.0f}",
-                                "Unidades disponíveis",
-                                "#F59E0B",
-                                ft.Icons.INVENTORY_2,
-                            ),
-                            col={"sm": 12, "md": 3},
-                        ),
-                    ]
-                ),
-
-                ft.Container(
-                    bgcolor="#0F172A",
-                    padding=22,
-                    border_radius=16,
-                    content=ft.Column(
-                        [
+                card(
+                    ft.Column(
+                        controls=[
                             ft.Text(
-                                "AURA 360 Business",
-                                size=20,
+                                "Pipeline comercial",
+                                size=18,
                                 weight=ft.FontWeight.BOLD,
-                                color="#FFFFFF",
                             ),
                             ft.Text(
-                                "CRM • Orçamentos • Faturação • POS • FIFO • Tesouraria",
-                                color="#CBD5E1",
+                                f"Contacto: {sum(1 for c in clientes if c['estado'] == 'Contacto')}"
+                            ),
+                            ft.Text(
+                                f"Proposta: {sum(1 for c in clientes if c['estado'] == 'Proposta')}"
+                            ),
+                            ft.Text(
+                                f"Negociação: {sum(1 for c in clientes if c['estado'] == 'Negociação')}"
+                            ),
+                            ft.Text(
+                                f"Fechado: {sum(1 for c in clientes if c['estado'] == 'Fechado')}"
+                            ),
+                        ],
+                        spacing=8,
+                    )
+                ),
+            ],
+            spacing=15,
+        )
+
+    # ========================================================
+    # MENU
+    # ========================================================
+
+    menu = ft.Column(
+        spacing=6,
+        width=230,
+    )
+
+    def construir_menu():
+
+        menu.controls.clear()
+
+        if estado["perfil"] == "pessoal":
+
+            itens = [
+                ("Dashboard", "dashboard", ft.Icons.DASHBOARD),
+                ("Movimentos", "transacoes", ft.Icons.RECEIPT_LONG),
+                ("Crédito", "credito", ft.Icons.CREDIT_CARD),
+                ("Metas", "metas", ft.Icons.FLAG),
+                ("Agenda", "agenda", ft.Icons.CALENDAR_MONTH),
+                ("Faturas", "faturas", ft.Icons.DESCRIPTION),
+            ]
+
+        else:
+
+            itens = [
+                ("Dashboard", "dashboard", ft.Icons.DASHBOARD),
+                ("CRM", "crm", ft.Icons.PEOPLE),
+                ("Orçamentos", "orcamentos", ft.Icons.REQUEST_QUOTE),
+                ("POS / FIFO", "pos", ft.Icons.POINT_OF_SALE),
+                ("Previsão", "previsao", ft.Icons.TRENDING_UP),
+                ("Impostos", "impostos", ft.Icons.ACCOUNT_BALANCE),
+            ]
+
+        for nome, modulo, icone in itens:
+
+            ativo = (
+                estado["modulo"] == modulo
+            )
+
+            menu.controls.append(
+                ft.ElevatedButton(
+                    content=ft.Row(
+                        controls=[
+                            ft.Icon(
+                                icone,
+                                color=WHITE if ativo else NAVY,
+                            ),
+                            ft.Text(
+                                nome,
+                                color=WHITE if ativo else NAVY,
                             ),
                         ]
                     ),
-                ),
-            ]
-        )
+                    bgcolor=BLUE if ativo else WHITE,
+                    color=WHITE if ativo else NAVY,
+                    width=220,
+                    on_click=lambda e, m=modulo: navegar(
+                        estado["perfil"],
+                        m,
+                    ),
+                )
+            )
 
     # ========================================================
     # NAVEGAÇÃO
     # ========================================================
 
-    personal_buttons = []
-    business_buttons = []
+    def navegar(perfil, modulo):
 
-    def show_view(view, title, subtitle):
+        estado["perfil"] = perfil
+        estado["modulo"] = modulo
 
-        page_title.value = title
-        page_subtitle.value = subtitle
+        construir_menu()
 
-        content_area.controls.clear()
-        content_area.controls.append(view())
+        if perfil == "pessoal":
 
-        page.update()
-
-    def personal_dashboard_click(e):
-        show_view(
-            personal_dashboard,
-            "AURA 360",
-            "Dashboard Pessoal",
-        )
-
-    def transactions_click(e):
-        show_view(
-            personal_transactions,
-            "AURA 360",
-            "Receitas & Despesas",
-        )
-
-    def loans_click(e):
-        show_view(
-            personal_loans,
-            "AURA 360",
-            "Crédito & Amortização",
-        )
-
-    def savings_click(e):
-        show_view(
-            personal_savings,
-            "AURA 360",
-            "Metas de Poupança",
-        )
-
-    def agenda_click(e):
-        show_view(
-            personal_agenda,
-            "AURA 360",
-            "Agenda & Calendário",
-        )
-
-    def business_dashboard_click(e):
-        show_view(
-            business_dashboard,
-            "AURA 360",
-            "Dashboard Empresarial",
-        )
-
-    def crm_click(e):
-        show_view(
-            business_crm,
-            "AURA 360",
-            "CRM",
-        )
-
-    def quotes_click(e):
-        show_view(
-            business_quotes,
-            "AURA 360",
-            "Orçamentos",
-        )
-
-    def invoices_click(e):
-        show_view(
-            business_invoices,
-            "AURA 360",
-            "Faturas",
-        )
-
-    def pos_click(e):
-        show_view(
-            business_pos,
-            "AURA 360",
-            "POS & FIFO",
-        )
-
-    def stock_click(e):
-        show_view(
-            business_stock,
-            "AURA 360",
-            "Inventário",
-        )
-
-    def forecast_click(e):
-        show_view(
-            business_forecast,
-            "AURA 360",
-            "Previsão Financeira",
-        )
-
-    # ========================================================
-    # BOTÕES DE PERFIL
-    # ========================================================
-
-    personal_nav = ft.Row(
-        [
-            button(
-                "Dashboard",
-                personal_dashboard_click,
-                "#0F172A",
-                ft.Icons.DASHBOARD,
-            ),
-            button(
-                "Receitas & Despesas",
-                transactions_click,
-                "#2563EB",
-                ft.Icons.ACCOUNT_BALANCE_WALLET,
-            ),
-            button(
-                "Créditos",
-                loans_click,
-                "#7C3AED",
-                ft.Icons.CREDIT_CARD,
-            ),
-            button(
-                "Metas",
-                savings_click,
-                "#16A34A",
-                ft.Icons.SAVINGS,
-            ),
-            button(
-                "Agenda",
-                agenda_click,
-                "#0891B2",
-                ft.Icons.CALENDAR_MONTH,
-            ),
-        ],
-        wrap=True,
-    )
-
-    business_nav = ft.Row(
-        [
-            button(
-                "Dashboard",
-                business_dashboard_click,
-                "#0F172A",
-                ft.Icons.DASHBOARD,
-            ),
-            button(
-                "CRM",
-                crm_click,
-                "#2563EB",
-                ft.Icons.GROUP,
-            ),
-            button(
-                "Orçamentos",
-                quotes_click,
-                "#7C3AED",
-                ft.Icons.REQUEST_QUOTE,
-            ),
-            button(
-                "Faturas",
-                invoices_click,
-                "#0891B2",
-                ft.Icons.RECEIPT_LONG,
-            ),
-            button(
-                "POS",
-                pos_click,
-                "#16A34A",
-                ft.Icons.POINT_OF_SALE,
-            ),
-            button(
-                "Inventário",
-                stock_click,
-                "#F59E0B",
-                ft.Icons.INVENTORY_2,
-            ),
-            button(
-                "Previsão",
-                forecast_click,
-                "#DC2626",
-                ft.Icons.INSIGHTS,
-            ),
-        ],
-        wrap=True,
-    )
-
-    # ========================================================
-    # TROCA DE PERFIL
-    # ========================================================
-
-    navigation_area = ft.Column()
-
-    profile_personal = button(
-        "PERFIL PESSOAL",
-        lambda e: switch_profile("Pessoal"),
-        "#2563EB",
-        ft.Icons.PERSON,
-    )
-
-    profile_business = button(
-        "PERFIL EMPRESARIAL",
-        lambda e: switch_profile("Empresarial"),
-        "#7C3AED",
-        ft.Icons.BUSINESS,
-    )
-
-    def switch_profile(profile):
-
-        nonlocal current_profile
-
-        current_profile = profile
-
-        navigation_area.controls.clear()
-
-        if profile == "Pessoal":
-
-            navigation_area.controls.extend(
-                [
-                    ft.Text(
-                        "👤 PERFIL PESSOAL",
-                        size=14,
-                        weight=ft.FontWeight.BOLD,
-                        color="#2563EB",
-                    ),
-                    personal_nav,
-                ]
-            )
-
-            show_view(
-                personal_dashboard,
-                "AURA 360",
-                "Dashboard Pessoal",
-            )
+            views = {
+                "dashboard": dashboard_pessoal,
+                "transacoes": transacoes_view,
+                "credito": credito_view,
+                "metas": metas_view,
+                "agenda": agenda_view,
+                "faturas": faturas_view,
+            }
 
         else:
 
-            navigation_area.controls.extend(
-                [
-                    ft.Text(
-                        "🏢 PERFIL EMPRESARIAL",
-                        size=14,
-                        weight=ft.FontWeight.BOLD,
-                        color="#7C3AED",
-                    ),
-                    business_nav,
-                ]
-            )
+            views = {
+                "dashboard": dashboard_empresa,
+                "crm": crm_view,
+                "orcamentos": orcamentos_view,
+                "pos": pos_view,
+                "previsao": previsao_view,
+                "impostos": impostos_view,
+            }
 
-            show_view(
-                business_dashboard,
-                "AURA 360",
-                "Dashboard Empresarial",
+        conteudo.controls.clear()
+
+        if modulo in views:
+            conteudo.controls.append(
+                views[modulo]()
             )
 
         page.update()
@@ -2474,261 +2305,188 @@ def main(page: ft.Page):
     # CABEÇALHO
     # ========================================================
 
+    ai_online_text = (
+        "IA ONLINE"
+        if ai_client
+        else "IA A AGUARDAR CHAVE"
+    )
+
     header = ft.Container(
-        bgcolor="#FFFFFF",
-        padding=18,
-        border_radius=16,
-        border=ft.Border.all(1, "#E2E8F0"),
         content=ft.Row(
-            [
+            controls=[
                 ft.Row(
-                    [
+                    controls=[
                         ft.Container(
-                            bgcolor="#0F172A",
-                            padding=10,
-                            border_radius=12,
                             content=ft.Icon(
                                 ft.Icons.AUTO_AWESOME,
-                                color="#38BDF8",
-                                size=28,
+                                color=WHITE,
+                                size=25,
                             ),
+                            bgcolor=BLUE,
+                            padding=10,
+                            border_radius=12,
                         ),
-
                         ft.Column(
-                            [
-                                page_title,
-                                page_subtitle,
+                            controls=[
+                                ft.Text(
+                                    "AURA 360",
+                                    size=24,
+                                    weight=ft.FontWeight.BOLD,
+                                    color=TEXT,
+                                ),
+                                ft.Text(
+                                    "Gestão financeira inteligente",
+                                    size=12,
+                                    color=MUTED,
+                                ),
                             ],
-                            spacing=2,
+                            spacing=1,
                         ),
-                    ],
-                    expand=True,
+                    ]
                 ),
 
                 ft.Row(
-                    [
-                        profile_personal,
-                        profile_business,
+                    controls=[
+                        ft.Container(
+                            content=ft.Text(
+                                ai_online_text,
+                                size=11,
+                                weight=ft.FontWeight.BOLD,
+                                color=GREEN if ai_client else ORANGE,
+                            ),
+                            bgcolor=LIGHT_GREEN if ai_client else LIGHT_ORANGE,
+                            padding=8,
+                            border_radius=8,
+                        ),
+                        botao(
+                            "AURA AI",
+                            abrir_ai,
+                            ft.Icons.AUTO_AWESOME,
+                            BLUE,
+                        ),
                     ],
                     wrap=True,
                 ),
             ],
             alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+        ),
+        bgcolor=WHITE,
+        padding=15,
+        border_radius=16,
+        border=ft.Border.all(1, BORDER),
+    )
+
+    # ========================================================
+    # SELETOR PESSOAL / EMPRESARIAL
+    # ========================================================
+
+    def selecionar_pessoal(e):
+
+        navegar(
+            "pessoal",
+            "dashboard",
+        )
+
+    def selecionar_empresa(e):
+
+        navegar(
+            "empresa",
+            "dashboard",
+        )
+
+    perfil_bar = ft.Container(
+        content=ft.Row(
+            controls=[
+                ft.Text(
+                    "Perfil:",
+                    weight=ft.FontWeight.BOLD,
+                    color=MUTED,
+                ),
+                botao(
+                    "Pessoal",
+                    selecionar_pessoal,
+                    ft.Icons.PERSON,
+                    BLUE,
+                ),
+                botao(
+                    "Empresarial",
+                    selecionar_empresa,
+                    ft.Icons.BUSINESS,
+                    NAVY,
+                ),
+                ft.Container(
+                    expand=True,
+                ),
+                ft.Text(
+                    datetime.now().strftime("%d/%m/%Y"),
+                    color=MUTED,
+                ),
+            ],
             wrap=True,
         ),
+        padding=10,
     )
 
     # ========================================================
-    # ASSISTENTE AURA AI
+    # LINKS INSTITUCIONAIS
     # ========================================================
 
-    chat_messages = ft.Column(
-        scroll=ft.ScrollMode.AUTO,
-        height=260,
-    )
-
-    chat_input = ft.TextField(
-        label="Pergunta ao AURA AI",
-        expand=True,
-    )
-
-    def ai_answer(text):
-
-        question = text.lower()
-
-        if "crédito" in question or "credito" in question:
-            return (
-                "Para analisar um crédito, utiliza o módulo "
-                "'Créditos' no Perfil Pessoal. Podes simular "
-                "uma amortização e comparar a prestação estimada."
-            )
-
-        if "cliente" in question or "crm" in question:
-            return (
-                "No Perfil Empresarial tens o CRM para registar "
-                "clientes e acompanhar o estado do processo comercial."
-            )
-
-        if "stock" in question or "inventário" in question:
-            return (
-                "O módulo POS & FIFO controla as entradas e as vendas. "
-                "Quando existe uma venda, o sistema consome primeiro "
-                "os lotes mais antigos."
-            )
-
-        if "orçamento" in question or "orcamento" in question:
-            return (
-                "No módulo Orçamentos podes indicar serviço, quantidade, "
-                "preço unitário e IVA para obter automaticamente o total."
-            )
-
-        if "fatura" in question or "fatura" in question:
-            return (
-                "O módulo Faturas permite registar documentos, cliente, "
-                "valor e IVA e acompanhar o estado."
-            )
-
-        if "poupança" in question or "poupanca" in question:
-            return (
-                "No módulo Metas podes criar objetivos financeiros e "
-                "acompanhar visualmente a percentagem alcançada."
-            )
-
-        return (
-            "Sou o assistente AURA 360. Posso orientar-te pelos módulos "
-            "de finanças pessoais, créditos, poupança, CRM, orçamentos, "
-            "faturas, POS, inventário e previsão financeira."
-        )
-
-    def send_ai(e):
-
-        if not chat_input.value or not chat_input.value.strip():
-            return
-
-        question = chat_input.value.strip()
-
-        chat_messages.controls.append(
-            ft.Container(
-                padding=8,
-                bgcolor="#EFF6FF",
-                border_radius=8,
-                content=ft.Text(
-                    f"Tu: {question}",
-                    weight=ft.FontWeight.BOLD,
-                ),
-            )
-        )
-
-        chat_messages.controls.append(
-            ft.Container(
-                padding=8,
-                bgcolor="#F8FAFC",
-                border_radius=8,
-                content=ft.Text(
-                    f"AURA AI: {ai_answer(question)}",
-                    color="#1D4ED8",
-                ),
-            )
-        )
-
-        chat_input.value = ""
-
-        page.update()
-
-    ai_dialog = ft.AlertDialog(
-        title=ft.Row(
-            [
-                ft.Icon(
-                    ft.Icons.AUTO_AWESOME,
-                    color="#2563EB",
-                ),
-                ft.Text(
-                    "AURA AI",
-                    weight=ft.FontWeight.BOLD,
-                ),
-            ]
-        ),
-        content=ft.Container(
-            width=500,
-            height=360,
-            content=ft.Column(
-                [
-                    chat_messages,
-                    ft.Row(
-                        [
-                            chat_input,
-                            ft.IconButton(
-                                icon=ft.Icons.SEND,
-                                icon_color="#2563EB",
-                                on_click=send_ai,
-                            ),
-                        ]
-                    ),
-                ]
+    links = ft.Row(
+        controls=[
+            ft.Text(
+                "Links úteis:",
+                color=MUTED,
+                size=12,
             ),
-        ),
-    )
-
-    def open_ai(e):
-
-        if ai_dialog not in page.overlay:
-            page.overlay.append(ai_dialog)
-
-        ai_dialog.open = True
-        page.update()
-
-    ai_button = ft.FloatingActionButton(
-        icon=ft.Icons.AUTO_AWESOME,
-        bgcolor="#2563EB",
-        foreground_color="#FFFFFF",
-        on_click=open_ai,
-    )
-
-    page.floating_action_button = ai_button
-
-    # ========================================================
-    # RODAPÉ
-    # ========================================================
-
-    footer = ft.Container(
-        padding=15,
-        content=ft.Column(
-            [
-                ft.Divider(color="#E2E8F0"),
-
-                ft.Row(
-                    [
-                        ft.Text(
-                            "AURA 360",
-                            weight=ft.FontWeight.BOLD,
-                            color="#0F172A",
-                        ),
-                        ft.Text(
-                            "Gestão Financeira • Empresarial • POS • CRM",
-                            size=11,
-                            color="#64748B",
-                        ),
-                    ],
-                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-                    wrap=True,
-                ),
-
-                ft.Text(
-                    "Os simuladores financeiros e fiscais são indicativos "
-                    "e não substituem aconselhamento profissional.",
-                    size=10,
-                    color="#94A3B8",
-                ),
-            ]
-        ),
+            ft.TextButton(
+                content="Portal das Finanças",
+                url="https://www.portaldasfinancas.gov.pt/",
+            ),
+            ft.TextButton(
+                content="AIMA",
+                url="https://aima.gov.pt/",
+            ),
+            ft.TextButton(
+                content="Segurança Social",
+                url="https://www.seg-social.pt/",
+            ),
+        ],
+        wrap=True,
     )
 
     # ========================================================
-    # MONTAGEM FINAL
+    # CONSTRUÇÃO
     # ========================================================
+
+    construir_menu()
+
+    navegar(
+        "pessoal",
+        "dashboard",
+    )
 
     page.add(
         header,
-        ft.Container(height=5),
-        navigation_area,
-        status_message,
-        content_area,
-        footer,
+        perfil_bar,
+        ft.Divider(color=BORDER),
+        ft.Row(
+            controls=[
+                menu,
+                ft.Container(
+                    content=conteudo,
+                    expand=True,
+                ),
+            ],
+            vertical_alignment=ft.CrossAxisAlignment.START,
+        ),
+        ft.Divider(color=BORDER),
+        links,
     )
-
-    # Começa no Perfil Pessoal
-    switch_profile("Pessoal")
 
 
 # ============================================================
-# ARRANQUE WEB
+# INICIAR
 # ============================================================
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", "8080"))
-
-    ft.app(
-        target=main,
-        port=port,
-        view=ft.AppView.WEB_BROWSER,
-    )
+    ft.run(main)
