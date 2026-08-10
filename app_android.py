@@ -1,18 +1,19 @@
 import flet as ft
-import os
-import random
 from datetime import datetime
 
 
 # ============================================================
 # AURA 360
 # Plataforma Financeira + Empresarial
-# Página inicial comercial + Mascote AURA + Dashboard
+# Versão Web/Desktop
 # ============================================================
 
 APP_NAME = "AURA 360"
 
-# Paleta própria da AURA
+# ============================================================
+# CORES
+# ============================================================
+
 NAVY = "#0B1220"
 NAVY_2 = "#111C32"
 BLUE = "#2563EB"
@@ -25,6 +26,7 @@ PURPLE_LIGHT = "#F5F3FF"
 ORANGE = "#F59E0B"
 ORANGE_LIGHT = "#FFFBEB"
 RED = "#EF4444"
+RED_LIGHT = "#FEF2F2"
 WHITE = "#FFFFFF"
 BG = "#F6F8FC"
 TEXT = "#0F172A"
@@ -46,6 +48,7 @@ user_data = {
     "saude_financeira": 78,
 }
 
+
 metas = [
     {
         "nome": "Fundo de Emergência",
@@ -66,6 +69,7 @@ metas = [
         "cor": PURPLE,
     },
 ]
+
 
 movimentos = [
     {
@@ -101,13 +105,6 @@ def main(page: ft.Page):
     page.bgcolor = BG
     page.padding = 0
     page.theme_mode = ft.ThemeMode.LIGHT
-
-    # --------------------------------------------------------
-    # CONFIGURAÇÃO RESPONSIVA
-    # --------------------------------------------------------
-
-    page.window_min_width = 360
-    page.window_min_height = 650
 
     # --------------------------------------------------------
     # ESTADO
@@ -147,12 +144,7 @@ def main(page: ft.Page):
         width=None,
     ):
         kwargs = {
-            "content": texto(
-                label,
-                size=14,
-                color=color,
-                weight=ft.FontWeight.W_600,
-            ),
+            "content": label,
             "bgcolor": bgcolor,
             "color": color,
             "on_click": on_click,
@@ -164,7 +156,7 @@ def main(page: ft.Page):
         if width is not None:
             kwargs["width"] = width
 
-        return ft.ElevatedButton(**kwargs)
+        return ft.Button(**kwargs)
 
     def card(content, padding=20, radius=18):
         return ft.Container(
@@ -175,11 +167,22 @@ def main(page: ft.Page):
             border=ft.Border.all(1, BORDER),
         )
 
-    def divider():
-        return ft.Container(
-            height=1,
-            bgcolor=BORDER,
+    # ========================================================
+    # SNACKBAR
+    # ========================================================
+
+    def avisar(mensagem, cor=GREEN):
+        page.snack_bar = ft.SnackBar(
+            content=texto(
+                mensagem,
+                color=WHITE,
+                weight=ft.FontWeight.W_500,
+            ),
+            bgcolor=cor,
         )
+
+        page.snack_bar.open = True
+        page.update()
 
     # ========================================================
     # AURA MASCOTE
@@ -198,94 +201,20 @@ def main(page: ft.Page):
         ),
     )
 
-    aura_status = texto(
-        "Estou aqui para ajudar.",
-        size=12,
-        color=MUTED,
-    )
-
     aura_message = texto(
-        "Olá! Eu sou a AURA. Posso ajudar-te a organizar o dinheiro, analisar créditos, acompanhar objetivos e gerir a tua empresa.",
+        "Olá! Eu sou a AURA. Estou aqui para ajudar-te.",
         size=14,
         color=TEXT,
     )
 
-    def aura_card(
-        mensagem=None,
-        titulo="AURA",
-        botao_texto="Falar com a AURA",
-        on_click=None,
-    ):
-
-        if mensagem:
-            aura_message.value = mensagem
-
-        aura_status.value = "● Online"
-
-        return card(
-            ft.Row(
-                [
-                    aura_avatar,
-                    ft.Column(
-                        [
-                            ft.Row(
-                                [
-                                    texto(
-                                        titulo,
-                                        size=17,
-                                        color=TEXT,
-                                        weight=ft.FontWeight.BOLD,
-                                    ),
-                                    ft.Container(
-                                        content=texto(
-                                            "ONLINE",
-                                            size=9,
-                                            color=GREEN,
-                                            weight=ft.FontWeight.BOLD,
-                                        ),
-                                        bgcolor=GREEN_LIGHT,
-                                        padding=6,
-                                        border_radius=8,
-                                    ),
-                                ],
-                                spacing=10,
-                            ),
-                            aura_message,
-                            aura_status,
-                            ft.Container(height=3),
-                            botao(
-                                botao_texto,
-                                on_click=on_click,
-                                bgcolor=NAVY,
-                                icon=ft.Icons.CHAT_BUBBLE_OUTLINE,
-                            ),
-                        ],
-                        expand=True,
-                        spacing=5,
-                    ),
-                ],
-                vertical_alignment=ft.CrossAxisAlignment.START,
-            )
-        )
+    aura_status = texto(
+        "● Online",
+        size=12,
+        color=GREEN,
+    )
 
     # ========================================================
-    # SNACKBAR
-    # ========================================================
-
-    def avisar(mensagem, cor=GREEN):
-        page.snack_bar = ft.SnackBar(
-            content=texto(
-                mensagem,
-                color=WHITE,
-                weight=ft.FontWeight.W_500,
-            ),
-            bgcolor=cor,
-        )
-        page.snack_bar.open = True
-        page.update()
-
-    # ========================================================
-    # AURA CHAT
+    # CHAT DA AURA
     # ========================================================
 
     chat_messages = ft.Column(
@@ -304,99 +233,121 @@ def main(page: ft.Page):
 
     def aura_responder(pergunta):
 
-        pergunta = pergunta.lower().strip()
+        p = pergunta.lower().strip()
 
         if any(
-            palavra in pergunta
+            palavra in p
             for palavra in [
                 "saldo",
                 "dinheiro",
+                "patrimonio",
                 "património",
             ]
         ):
             return (
-                f"O teu saldo atual registado na AURA é "
+                f"O teu saldo registado atualmente é "
                 f"{user_data['saldo']:,.2f} €. "
-                "Posso também ajudar a analisar receitas, despesas "
-                "e evolução mensal."
+                "Posso também analisar receitas, despesas "
+                "e evolução financeira."
             )
 
         if any(
-            palavra in pergunta
+            palavra in p
             for palavra in [
                 "poupar",
                 "poupança",
+                "poupanca",
                 "guardar",
+                "economizar",
             ]
         ):
             return (
-                f"Neste momento tens uma capacidade de poupança "
-                f"registada de {user_data['poupanca']:,.2f} € por mês. "
-                "Também tens metas de poupança configuradas."
+                f"Neste momento tens uma capacidade de "
+                f"poupança registada de "
+                f"{user_data['poupanca']:,.2f} € por mês. "
+                "Também tens metas financeiras configuradas."
             )
 
         if any(
-            palavra in pergunta
+            palavra in p
             for palavra in [
                 "credito",
                 "crédito",
                 "prestação",
+                "prestacao",
                 "divida",
                 "dívida",
             ]
         ):
             return (
-                f"As prestações/créditos registados totalizam "
+                f"As prestações registadas totalizam "
                 f"{user_data['creditos']:,.2f} € por mês. "
-                "Posso calcular a taxa de esforço se me indicares "
-                "o rendimento líquido mensal."
+                "Se me disseres o teu rendimento líquido mensal, "
+                "posso calcular a taxa de esforço."
             )
 
         if any(
-            palavra in pergunta
+            palavra in p
             for palavra in [
                 "empresa",
                 "negócio",
                 "negocio",
                 "cliente",
                 "venda",
+                "fatura",
+                "fatura",
             ]
         ):
             return (
-                "Posso mudar para o Perfil Empresarial e ajudar "
-                "com clientes, vendas, orçamentos, inventário, "
-                "tesouraria e análise do negócio."
+                "Posso ajudar-te no Perfil Empresarial com "
+                "clientes, vendas, orçamentos, inventário, "
+                "tesouraria e organização financeira."
             )
 
         if any(
-            palavra in pergunta
+            palavra in p
             for palavra in [
                 "irs",
                 "imposto",
-                "fatura",
-                "fatura",
+                "impostos",
                 "efatura",
+                "e-fatura",
             ]
         ):
             return (
-                "Posso ajudar a organizar despesas e documentos "
-                "relacionados com IRS. Para valores fiscais atuais "
-                "e decisões fiscais, a versão completa da AURA "
-                "deve consultar fontes oficiais."
+                "Posso ajudar a organizar informação relacionada "
+                "com impostos e documentos. Para regras fiscais "
+                "atuais, devemos consultar fontes oficiais."
             )
 
-        if "olá" in pergunta or "ola" in pergunta:
+        if any(
+            palavra in p
+            for palavra in [
+                "ola",
+                "olá",
+                "bom dia",
+                "boa tarde",
+                "boa noite",
+            ]
+        ):
             return (
                 "Olá! 👋 Sou a AURA. "
-                "Diz-me o que queres resolver e começamos por aí."
+                "Diz-me o que queres resolver e começamos."
+            )
+
+        if "ajuda" in p:
+            return (
+                "Claro. Posso ajudar com finanças pessoais, "
+                "poupança, créditos, metas, empresas, clientes, "
+                "vendas, orçamento e organização."
             )
 
         return (
-            "Posso ajudar-te com finanças pessoais, poupança, "
-            "crédito, documentos, impostos, empresas, vendas, "
-            "orçamentos e organização financeira. "
+            "Percebi. Posso ajudar-te a analisar essa situação. "
             "Experimenta perguntar, por exemplo: "
-            "\"Quanto estou a gastar?\""
+            "\"Quanto estou a gastar?\", "
+            "\"Como posso poupar?\" ou "
+            "\"Quero analisar os meus créditos.\""
         )
 
     def enviar_mensagem(e):
@@ -414,7 +365,7 @@ def main(page: ft.Page):
                     size=13,
                 ),
                 bgcolor=BLUE,
-                padding=10,
+                padding=12,
                 border_radius=12,
             )
         )
@@ -429,13 +380,17 @@ def main(page: ft.Page):
                     size=13,
                 ),
                 bgcolor=BLUE_LIGHT,
-                padding=10,
+                padding=12,
                 border_radius=12,
             )
         )
 
         chat_input.value = ""
 
+        page.update()
+
+    def fechar_chat(e=None):
+        chat_dialog.open = False
         page.update()
 
     chat_dialog = ft.AlertDialog(
@@ -447,7 +402,7 @@ def main(page: ft.Page):
                     color=BLUE,
                 ),
                 texto(
-                    "AURA — Assistente Financeira",
+                    "AURA — Assistente",
                     size=18,
                     weight=ft.FontWeight.BOLD,
                 ),
@@ -460,7 +415,7 @@ def main(page: ft.Page):
                 [
                     ft.Container(
                         content=texto(
-                            "Pergunta-me qualquer coisa sobre a tua organização financeira.",
+                            "Pergunta-me o que quiseres sobre a tua organização financeira.",
                             size=13,
                             color=MUTED,
                         ),
@@ -483,36 +438,83 @@ def main(page: ft.Page):
         ),
         actions=[
             ft.TextButton(
-                content=texto(
-                    "Fechar",
-                    color=BLUE,
-                ),
-                on_click=lambda e: fechar_dialog(chat_dialog),
+                content="Fechar",
+                on_click=fechar_chat,
             )
         ],
     )
 
-    def abrir_dialog(dialog):
-        if dialog not in page.overlay:
-            page.overlay.append(dialog)
-
-        dialog.open = True
-        page.update()
-
-    def fechar_dialog(dialog):
-        dialog.open = False
-        page.update()
-
     def abrir_aura(e=None):
-        abrir_dialog(chat_dialog)
+
+        if chat_dialog not in page.overlay:
+            page.overlay.append(chat_dialog)
+
+        chat_dialog.open = True
+        page.update()
 
     # ========================================================
-    # LOGIN / REGISTO
+    # CARTÃO DA AURA
+    # ========================================================
+
+    def aura_card(
+        mensagem=None,
+        botao_texto="Falar com a AURA",
+        on_click=None,
+    ):
+
+        if mensagem:
+            aura_message.value = mensagem
+
+        return card(
+            ft.Row(
+                [
+                    aura_avatar,
+                    ft.Column(
+                        [
+                            ft.Row(
+                                [
+                                    texto(
+                                        "AURA",
+                                        size=17,
+                                        weight=ft.FontWeight.BOLD,
+                                    ),
+                                    ft.Container(
+                                        content=texto(
+                                            "ONLINE",
+                                            size=9,
+                                            color=GREEN,
+                                            weight=ft.FontWeight.BOLD,
+                                        ),
+                                        bgcolor=GREEN_LIGHT,
+                                        padding=6,
+                                        border_radius=8,
+                                    ),
+                                ],
+                                spacing=10,
+                            ),
+                            aura_message,
+                            aura_status,
+                            botao(
+                                botao_texto,
+                                on_click=on_click,
+                                bgcolor=NAVY,
+                                icon=ft.Icons.CHAT_BUBBLE_OUTLINE,
+                            ),
+                        ],
+                        expand=True,
+                        spacing=6,
+                    ),
+                ],
+                vertical_alignment=ft.CrossAxisAlignment.START,
+            )
+        )
+
+    # ========================================================
+    # LOGIN
     # ========================================================
 
     login_email = ft.TextField(
         label="Email",
-        keyboard_type=ft.KeyboardType.EMAIL,
         border_color=BORDER,
     )
 
@@ -522,6 +524,88 @@ def main(page: ft.Page):
         can_reveal_password=True,
         border_color=BORDER,
     )
+
+    # ========================================================
+    # REGISTO
+    # ========================================================
+
+    reg_nome = ft.TextField(
+        label="Nome",
+        border_color=BORDER,
+    )
+
+    reg_email = ft.TextField(
+        label="Email",
+        border_color=BORDER,
+    )
+
+    reg_password = ft.TextField(
+        label="Criar password",
+        password=True,
+        can_reveal_password=True,
+        border_color=BORDER,
+    )
+
+    login_dialog = None
+    registo_dialog = None
+
+    def entrar_conta():
+
+        if not login_email.value or not login_password.value:
+            avisar(
+                "Preenche o email e a password.",
+                RED,
+            )
+            return
+
+        estado["autenticado"] = True
+
+        user_data["nome"] = (
+            login_email.value.split("@")[0].title()
+        )
+
+        login_dialog.open = False
+
+        mostrar_dashboard()
+
+    def criar_conta():
+
+        if (
+            not reg_nome.value
+            or not reg_email.value
+            or not reg_password.value
+        ):
+            avisar(
+                "Preenche todos os campos.",
+                RED,
+            )
+            return
+
+        if len(reg_password.value) < 6:
+            avisar(
+                "A password deve ter pelo menos 6 caracteres.",
+                RED,
+            )
+            return
+
+        estado["autenticado"] = True
+
+        user_data["nome"] = reg_nome.value
+
+        registo_dialog.open = False
+
+        mostrar_dashboard()
+
+        avisar(
+            "Conta criada. Bem-vindo à AURA 360!",
+            GREEN,
+        )
+
+    def abrir_registo():
+
+        login_dialog.open = False
+        registo_dialog.open = True
+        page.update()
 
     login_dialog = ft.AlertDialog(
         modal=True,
@@ -546,35 +630,13 @@ def main(page: ft.Page):
                         width=200,
                     ),
                     ft.TextButton(
-                        content=texto(
-                            "Ainda não tenho conta",
-                            color=BLUE,
-                        ),
+                        content="Ainda não tenho conta",
                         on_click=lambda e: abrir_registo(),
                     ),
                 ],
-                tight=True,
                 spacing=12,
             ),
         ),
-    )
-
-    reg_nome = ft.TextField(
-        label="Nome",
-        border_color=BORDER,
-    )
-
-    reg_email = ft.TextField(
-        label="Email",
-        keyboard_type=ft.KeyboardType.EMAIL,
-        border_color=BORDER,
-    )
-
-    reg_password = ft.TextField(
-        label="Criar password",
-        password=True,
-        can_reveal_password=True,
-        border_color=BORDER,
     )
 
     registo_dialog = ft.AlertDialog(
@@ -589,7 +651,7 @@ def main(page: ft.Page):
             content=ft.Column(
                 [
                     texto(
-                        "Começa gratuitamente.",
+                        "Cria a tua conta para começar.",
                         color=MUTED,
                     ),
                     reg_nome,
@@ -606,141 +668,148 @@ def main(page: ft.Page):
         ),
     )
 
-    def entrar_conta():
+    def abrir_login(e=None):
 
-        if not login_email.value or not login_password.value:
-            avisar(
-                "Preenche o email e a password.",
-                RED,
-            )
-            return
+        if login_dialog not in page.overlay:
+            page.overlay.append(login_dialog)
 
-        estado["autenticado"] = True
-        user_data["nome"] = (
-            login_email.value.split("@")[0].title()
-        )
+        login_dialog.open = True
+        page.update()
 
-        login_dialog.open = False
+    def abrir_registo_principal(e=None):
 
-        mostrar_dashboard()
+        if registo_dialog not in page.overlay:
+            page.overlay.append(registo_dialog)
 
-    def abrir_registo():
+        registo_dialog.open = True
+        page.update()
 
-        login_dialog.open = False
-        abrir_dialog(registo_dialog)
+    # ========================================================
+    # LOGO
+    # ========================================================
 
-    def criar_conta():
+    def logo():
 
-        if (
-            not reg_nome.value
-            or not reg_email.value
-            or not reg_password.value
-        ):
-            avisar(
-                "Preenche todos os campos.",
-                RED,
-            )
-            return
-
-        estado["autenticado"] = True
-        user_data["nome"] = reg_nome.value
-
-        registo_dialog.open = False
-
-        mostrar_dashboard()
-
-        avisar(
-            "Conta criada. Bem-vindo à AURA 360!",
-            GREEN,
+        return ft.Row(
+            [
+                ft.Container(
+                    width=42,
+                    height=42,
+                    bgcolor=NAVY,
+                    border_radius=12,
+                    alignment=ft.Alignment.CENTER,
+                    content=ft.Icon(
+                        ft.Icons.AUTO_AWESOME,
+                        color="#60A5FA",
+                        size=23,
+                    ),
+                ),
+                texto(
+                    "AURA",
+                    size=23,
+                    color=NAVY,
+                    weight=ft.FontWeight.BOLD,
+                ),
+                texto(
+                    "360",
+                    size=23,
+                    color=BLUE,
+                    weight=ft.FontWeight.BOLD,
+                ),
+            ],
+            spacing=8,
         )
 
     # ========================================================
     # HEADER LANDING
     # ========================================================
 
-    def abrir_login(e):
-        abrir_dialog(login_dialog)
+    def header_landing():
 
-    def abrir_registo_principal(e):
-        abrir_dialog(registo_dialog)
+        return ft.Container(
+            bgcolor=WHITE,
+            padding=20,
+            content=ft.ResponsiveRow(
+                [
+                    ft.Container(
+                        col={
+                            "sm": 12,
+                            "md": 4,
+                            "lg": 4,
+                        },
+                        content=logo(),
+                    ),
+                    ft.Container(
+                        col={
+                            "sm": 12,
+                            "md": 8,
+                            "lg": 8,
+                        },
+                        content=ft.Row(
+                            [
+                                ft.TextButton(
+                                    content="Como funciona",
+                                ),
+                                ft.TextButton(
+                                    content="Para empresas",
+                                ),
+                                ft.TextButton(
+                                    content="Ajuda",
+                                ),
+                                botao(
+                                    "Entrar",
+                                    on_click=abrir_login,
+                                    bgcolor=WHITE,
+                                    color=NAVY,
+                                ),
+                                botao(
+                                    "Criar conta",
+                                    on_click=abrir_registo_principal,
+                                ),
+                            ],
+                            alignment=ft.MainAxisAlignment.END,
+                            wrap=True,
+                        ),
+                    ),
+                ],
+                vertical_alignment=ft.CrossAxisAlignment.CENTER,
+            ),
+        )
 
-    header_landing = ft.Container(
-        bgcolor=WHITE,
-        padding=ft.Padding(
-            left=30,
-            right=30,
-            top=18,
-            bottom=18,
-        ),
-        content=ft.Row(
-            [
-                ft.Row(
-                    [
-                        ft.Container(
-                            width=42,
-                            height=42,
-                            bgcolor=NAVY,
-                            border_radius=12,
-                            alignment=ft.Alignment.CENTER,
-                            content=ft.Icon(
-                                ft.Icons.AUTO_AWESOME,
-                                color="#60A5FA",
-                                size=23,
-                            ),
+    # ========================================================
+    # ESCOLHAS HERO
+    # ========================================================
+
+    def escolha_hero(emoji, titulo, action):
+
+        return ft.Container(
+            content=ft.Row(
+                [
+                    texto(
+                        emoji,
+                        size=21,
+                    ),
+                    ft.Container(
+                        content=texto(
+                            titulo,
+                            size=13,
+                            color=WHITE,
+                            weight=ft.FontWeight.W_500,
                         ),
-                        texto(
-                            "AURA",
-                            size=23,
-                            color=NAVY,
-                            weight=ft.FontWeight.BOLD,
-                        ),
-                        texto(
-                            "360",
-                            size=23,
-                            color=BLUE,
-                            weight=ft.FontWeight.BOLD,
-                        ),
-                    ],
-                    spacing=8,
-                ),
-                ft.Row(
-                    [
-                        ft.TextButton(
-                            content=texto(
-                                "Como funciona",
-                                color=MUTED,
-                            ),
-                        ),
-                        ft.TextButton(
-                            content=texto(
-                                "Para empresas",
-                                color=MUTED,
-                            ),
-                        ),
-                        ft.TextButton(
-                            content=texto(
-                                "Ajuda",
-                                color=MUTED,
-                            ),
-                        ),
-                        botao(
-                            "Entrar",
-                            on_click=abrir_login,
-                            bgcolor=WHITE,
-                            color=NAVY,
-                        ),
-                        botao(
-                            "Criar conta",
-                            on_click=abrir_registo_principal,
-                        ),
-                    ],
-                    spacing=5,
-                ),
-            ],
-            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-            vertical_alignment=ft.CrossAxisAlignment.CENTER,
-        ),
-    )
+                        expand=True,
+                    ),
+                    ft.Icon(
+                        ft.Icons.ARROW_FORWARD,
+                        color="#64748B",
+                        size=17,
+                    ),
+                ],
+            ),
+            bgcolor="#162238",
+            padding=14,
+            border_radius=12,
+            on_click=action,
+        )
 
     # ========================================================
     # HERO
@@ -750,12 +819,7 @@ def main(page: ft.Page):
 
         return ft.Container(
             bgcolor=NAVY,
-            padding=ft.Padding(
-                left=35,
-                right=35,
-                top=55,
-                bottom=55,
-            ),
+            padding=35,
             content=ft.ResponsiveRow(
                 [
                     ft.Container(
@@ -857,22 +921,22 @@ def main(page: ft.Page):
                                     escolha_hero(
                                         "💰",
                                         "Organizar as minhas finanças",
-                                        lambda e: abrir_registo_principal(e),
+                                        abrir_registo_principal,
                                     ),
                                     escolha_hero(
                                         "💳",
                                         "Analisar os meus créditos",
-                                        lambda e: abrir_registo_principal(e),
+                                        abrir_registo_principal,
                                     ),
                                     escolha_hero(
                                         "🏢",
                                         "Gerir a minha empresa",
-                                        lambda e: abrir_registo_principal(e),
+                                        abrir_registo_principal,
                                     ),
                                     escolha_hero(
                                         "🎯",
                                         "Criar uma meta de poupança",
-                                        lambda e: abrir_registo_principal(e),
+                                        abrir_registo_principal,
                                     ),
                                 ],
                                 spacing=12,
@@ -891,40 +955,16 @@ def main(page: ft.Page):
             ),
         )
 
-    def escolha_hero(emoji, titulo, action):
-
-        return ft.Container(
-            content=ft.Row(
-                [
-                    texto(
-                        emoji,
-                        size=21,
-                    ),
-                    texto(
-                        titulo,
-                        size=13,
-                        color=WHITE,
-                        weight=ft.FontWeight.W_500,
-                    ),
-                    ft.Icon(
-                        ft.Icons.ARROW_FORWARD,
-                        color="#64748B",
-                        size=17,
-                    ),
-                ],
-                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-            ),
-            bgcolor="#162238",
-            padding=14,
-            border_radius=12,
-            on_click=action,
-        )
-
     # ========================================================
-    # BENEFÍCIOS
+    # FEATURE CARD
     # ========================================================
 
-    def feature_card(icon, titulo, descricao, cor):
+    def feature_card(
+        icon,
+        titulo,
+        descricao,
+        cor,
+    ):
 
         return ft.Container(
             content=ft.Column(
@@ -957,162 +997,192 @@ def main(page: ft.Page):
             bgcolor=WHITE,
             padding=22,
             border_radius=18,
-            border=ft.Border.all(1, BORDER),
+            border=ft.Border.all(
+                1,
+                BORDER,
+            ),
         )
 
     # ========================================================
     # LANDING PAGE
     # ========================================================
 
-    landing_content = ft.Column(
-        [
-            header_landing,
-            hero(),
-            ft.Container(
-                padding=30,
-                content=ft.Column(
-                    [
-                        texto(
-                            "Tudo o que precisas num só lugar",
-                            size=28,
-                            weight=ft.FontWeight.BOLD,
-                        ),
-                        texto(
-                            "A AURA organiza a complexidade para que "
-                            "possas tomar decisões melhores.",
-                            size=14,
-                            color=MUTED,
-                        ),
-                        ft.ResponsiveRow(
-                            [
-                                ft.Container(
-                                    col={
-                                        "sm": 12,
-                                        "md": 6,
-                                        "lg": 3,
-                                    },
-                                    content=feature_card(
-                                        ft.Icons.ACCOUNT_BALANCE_WALLET,
-                                        "Finanças pessoais",
-                                        "Receitas, despesas, saldo e evolução.",
-                                        BLUE,
+    def mostrar_landing():
+
+        estado["autenticado"] = False
+        page.navigation_bar = None
+        page.controls.clear()
+
+        landing = ft.Column(
+            [
+                header_landing(),
+                hero(),
+
+                ft.Container(
+                    padding=30,
+                    content=ft.Column(
+                        [
+                            texto(
+                                "Tudo o que precisas num só lugar",
+                                size=28,
+                                weight=ft.FontWeight.BOLD,
+                            ),
+                            texto(
+                                "A AURA organiza a complexidade para que "
+                                "possas tomar decisões melhores.",
+                                size=14,
+                                color=MUTED,
+                            ),
+
+                            ft.ResponsiveRow(
+                                [
+                                    ft.Container(
+                                        col={
+                                            "sm": 12,
+                                            "md": 6,
+                                            "lg": 3,
+                                        },
+                                        content=feature_card(
+                                            ft.Icons.ACCOUNT_BALANCE_WALLET,
+                                            "Finanças pessoais",
+                                            "Receitas, despesas, saldo e evolução.",
+                                            BLUE,
+                                        ),
                                     ),
-                                ),
-                                ft.Container(
-                                    col={
-                                        "sm": 12,
-                                        "md": 6,
-                                        "lg": 3,
-                                    },
-                                    content=feature_card(
-                                        ft.Icons.CREDIT_CARD,
-                                        "Crédito",
-                                        "Analisa prestações e taxa de esforço.",
-                                        GREEN,
+
+                                    ft.Container(
+                                        col={
+                                            "sm": 12,
+                                            "md": 6,
+                                            "lg": 3,
+                                        },
+                                        content=feature_card(
+                                            ft.Icons.CREDIT_CARD,
+                                            "Crédito",
+                                            "Analisa prestações e taxa de esforço.",
+                                            GREEN,
+                                        ),
                                     ),
-                                ),
-                                ft.Container(
-                                    col={
-                                        "sm": 12,
-                                        "md": 6,
-                                        "lg": 3,
-                                    },
-                                    content=feature_card(
-                                        ft.Icons.TARGET,
-                                        "Objetivos",
-                                        "Cria metas e acompanha o progresso.",
-                                        PURPLE,
+
+                                    ft.Container(
+                                        col={
+                                            "sm": 12,
+                                            "md": 6,
+                                            "lg": 3,
+                                        },
+                                        content=feature_card(
+                                            ft.Icons.FLAG,
+                                            "Objetivos",
+                                            "Cria metas e acompanha o progresso.",
+                                            PURPLE,
+                                        ),
                                     ),
-                                ),
-                                ft.Container(
-                                    col={
-                                        "sm": 12,
-                                        "md": 6,
-                                        "lg": 3,
-                                    },
-                                    content=feature_card(
-                                        ft.Icons.BUSINESS,
-                                        "Empresas",
-                                        "Clientes, vendas, stock e tesouraria.",
-                                        ORANGE,
+
+                                    ft.Container(
+                                        col={
+                                            "sm": 12,
+                                            "md": 6,
+                                            "lg": 3,
+                                        },
+                                        content=feature_card(
+                                            ft.Icons.BUSINESS,
+                                            "Empresas",
+                                            "Clientes, vendas, stock e tesouraria.",
+                                            ORANGE,
+                                        ),
                                     ),
-                                ),
-                            ],
-                            spacing=15,
-                        ),
-                    ],
-                    spacing=15,
-                ),
-            ),
-            ft.Container(
-                padding=30,
-                content=aura_card(
-                    mensagem=(
-                        "Eu acompanho-te dentro da plataforma. "
-                        "Quando precisares de ajuda, pergunta-me."
+                                ],
+                                spacing=15,
+                            ),
+                        ],
+                        spacing=15,
                     ),
-                    botao_texto="Experimentar a AURA",
-                    on_click=abrir_aura,
                 ),
-            ),
-            ft.Container(
-                bgcolor=NAVY,
-                padding=35,
-                content=ft.Column(
-                    [
-                        texto(
-                            "Uma plataforma. Dois mundos.",
-                            size=28,
-                            color=WHITE,
-                            weight=ft.FontWeight.BOLD,
+
+                ft.Container(
+                    padding=30,
+                    content=aura_card(
+                        mensagem=(
+                            "Eu acompanho-te dentro da plataforma. "
+                            "Quando precisares de ajuda, pergunta-me."
                         ),
-                        texto(
-                            "Começa nas tuas finanças pessoais e, "
-                            "quando precisares, passa para o universo empresarial.",
-                            size=14,
-                            color="#CBD5E1",
-                        ),
-                        ft.Row(
-                            [
-                                botao(
-                                    "Perfil Pessoal",
-                                    on_click=abrir_registo_principal,
-                                    bgcolor=WHITE,
-                                    color=NAVY,
-                                ),
-                                botao(
-                                    "Perfil Empresarial",
-                                    on_click=abrir_registo_principal,
-                                    bgcolor="#1E293B",
-                                    color=WHITE,
-                                ),
-                            ],
-                            wrap=True,
-                        ),
-                    ],
-                    spacing=15,
+                        botao_texto="Experimentar a AURA",
+                        on_click=abrir_aura,
+                    ),
                 ),
-            ),
-            ft.Container(
-                padding=25,
-                content=texto(
-                    "© 2026 AURA 360 • Gestão Financeira & Empresarial",
-                    size=12,
-                    color=MUTED,
-                    text_align=ft.TextAlign.CENTER,
+
+                ft.Container(
+                    bgcolor=NAVY,
+                    padding=35,
+                    content=ft.Column(
+                        [
+                            texto(
+                                "Uma plataforma. Dois mundos.",
+                                size=28,
+                                color=WHITE,
+                                weight=ft.FontWeight.BOLD,
+                            ),
+                            texto(
+                                "Começa nas tuas finanças pessoais e, "
+                                "quando precisares, passa para o universo empresarial.",
+                                size=14,
+                                color="#CBD5E1",
+                            ),
+                            ft.Row(
+                                [
+                                    botao(
+                                        "Perfil Pessoal",
+                                        on_click=abrir_registo_principal,
+                                        bgcolor=WHITE,
+                                        color=NAVY,
+                                    ),
+                                    botao(
+                                        "Perfil Empresarial",
+                                        on_click=abrir_registo_principal,
+                                        bgcolor="#1E293B",
+                                        color=WHITE,
+                                    ),
+                                ],
+                                wrap=True,
+                            ),
+                        ],
+                        spacing=15,
+                    ),
                 ),
-            ),
-        ],
-        spacing=0,
-    )
+
+                ft.Container(
+                    padding=25,
+                    content=texto(
+                        f"© {datetime.now().year} AURA 360 • Gestão Financeira & Empresarial",
+                        size=12,
+                        color=MUTED,
+                        text_align=ft.TextAlign.CENTER,
+                    ),
+                ),
+            ],
+            spacing=0,
+        )
+
+        page.add(
+            ft.SafeArea(
+                content=landing,
+                expand=True,
+            )
+        )
+
+        page.update()
 
     # ========================================================
-    # DASHBOARD
+    # MÉTRICAS
     # ========================================================
 
-    dashboard_area = ft.Column(expand=True)
-
-    def metric_card(titulo, valor, legenda, icon, cor):
+    def metric_card(
+        titulo,
+        valor,
+        legenda,
+        icon,
+        cor,
+    ):
 
         return ft.Container(
             content=ft.Column(
@@ -1140,15 +1210,21 @@ def main(page: ft.Page):
                         ],
                         alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                     ),
+
                     texto(
                         valor,
                         size=25,
                         weight=ft.FontWeight.BOLD,
                     ),
+
                     texto(
                         legenda,
                         size=12,
-                        color=GREEN if "+" in legenda else MUTED,
+                        color=(
+                            GREEN
+                            if "+" in legenda
+                            else MUTED
+                        ),
                     ),
                 ],
                 spacing=8,
@@ -1156,87 +1232,106 @@ def main(page: ft.Page):
             bgcolor=WHITE,
             padding=18,
             border_radius=16,
-            border=ft.Border.all(1, BORDER),
+            border=ft.Border.all(
+                1,
+                BORDER,
+            ),
         )
+
+    # ========================================================
+    # DASHBOARD
+    # ========================================================
+
+    dashboard_area = ft.Column(
+        expand=True,
+        scroll=ft.ScrollMode.AUTO,
+    )
 
     def mostrar_dashboard():
 
-        def voltar_inicio(e):
-            mostrar_landing()
+        estado["autenticado"] = True
 
+        page.navigation_bar = None
         dashboard_area.controls.clear()
 
-        # Header dashboard
+        # HEADER
         dashboard_area.controls.append(
             ft.Container(
                 bgcolor=NAVY,
                 padding=20,
-                content=ft.Row(
+                content=ft.ResponsiveRow(
                     [
-                        ft.Row(
-                            [
-                                ft.Container(
-                                    width=40,
-                                    height=40,
-                                    bgcolor=BLUE,
-                                    border_radius=12,
-                                    alignment=ft.Alignment.CENTER,
-                                    content=ft.Icon(
-                                        ft.Icons.AUTO_AWESOME,
-                                        color=WHITE,
+                        ft.Container(
+                            col={
+                                "sm": 12,
+                                "md": 5,
+                            },
+                            content=ft.Row(
+                                [
+                                    ft.Container(
+                                        width=40,
+                                        height=40,
+                                        bgcolor=BLUE,
+                                        border_radius=12,
+                                        alignment=ft.Alignment.CENTER,
+                                        content=ft.Icon(
+                                            ft.Icons.AUTO_AWESOME,
+                                            color=WHITE,
+                                        ),
                                     ),
-                                ),
-                                texto(
-                                    "AURA 360",
-                                    size=20,
-                                    color=WHITE,
-                                    weight=ft.FontWeight.BOLD,
-                                ),
-                            ]
-                        ),
-                        ft.Row(
-                            [
-                                ft.TextButton(
-                                    content=texto(
-                                        "Início",
-                                        color="#CBD5E1",
-                                    ),
-                                    on_click=voltar_inicio,
-                                ),
-                                ft.TextButton(
-                                    content=texto(
-                                        "AURA AI",
-                                        color="#93C5FD",
-                                    ),
-                                    on_click=abrir_aura,
-                                ),
-                                ft.Container(
-                                    content=texto(
-                                        user_data["nome"],
-                                        size=12,
+                                    texto(
+                                        "AURA 360",
+                                        size=20,
                                         color=WHITE,
                                         weight=ft.FontWeight.BOLD,
                                     ),
-                                    bgcolor=NAVY_2,
-                                    padding=10,
-                                    border_radius=10,
-                                ),
-                            ],
+                                ],
+                            ),
+                        ),
+
+                        ft.Container(
+                            col={
+                                "sm": 12,
+                                "md": 7,
+                            },
+                            content=ft.Row(
+                                [
+                                    ft.TextButton(
+                                        content=texto(
+                                            "AURA AI",
+                                            color="#93C5FD",
+                                        ),
+                                        on_click=abrir_aura,
+                                    ),
+                                    ft.Container(
+                                        content=texto(
+                                            user_data["nome"],
+                                            size=12,
+                                            color=WHITE,
+                                            weight=ft.FontWeight.BOLD,
+                                        ),
+                                        bgcolor=NAVY_2,
+                                        padding=10,
+                                        border_radius=10,
+                                    ),
+                                ],
+                                alignment=ft.MainAxisAlignment.END,
+                            ),
                         ),
                     ],
-                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                    vertical_alignment=ft.CrossAxisAlignment.CENTER,
                 ),
             )
         )
 
-        # Saudação
+        # SAUDAÇÃO
         dashboard_area.controls.append(
             ft.Container(
                 padding=25,
                 content=ft.Column(
                     [
                         texto(
-                            f"Bom dia, {user_data['nome']} 👋",
+                            f"Olá, {user_data['nome']} 👋",
                             size=27,
                             weight=ft.FontWeight.BOLD,
                         ),
@@ -1250,15 +1345,10 @@ def main(page: ft.Page):
             )
         )
 
-        # Métricas
+        # MÉTRICAS
         dashboard_area.controls.append(
             ft.Container(
-                padding=ft.Padding(
-                    left=25,
-                    right=25,
-                    top=0,
-                    bottom=20,
-                ),
+                padding=25,
                 content=ft.ResponsiveRow(
                     [
                         ft.Container(
@@ -1275,6 +1365,7 @@ def main(page: ft.Page):
                                 GREEN,
                             ),
                         ),
+
                         ft.Container(
                             col={
                                 "sm": 12,
@@ -1289,6 +1380,7 @@ def main(page: ft.Page):
                                 GREEN,
                             ),
                         ),
+
                         ft.Container(
                             col={
                                 "sm": 12,
@@ -1303,6 +1395,7 @@ def main(page: ft.Page):
                                 RED,
                             ),
                         ),
+
                         ft.Container(
                             col={
                                 "sm": 12,
@@ -1334,10 +1427,10 @@ def main(page: ft.Page):
                 ),
                 content=aura_card(
                     mensagem=(
-                        "Analisei o teu resumo. "
-                        "Tens uma capacidade de poupança de "
+                        "Analisei o teu resumo. Tens uma capacidade "
+                        "de poupança registada de "
                         f"{user_data['poupanca']:,.2f} € este mês. "
-                        "Queres que eu te ajude a definir o próximo objetivo?"
+                        "Queres falar comigo?"
                     ),
                     botao_texto="Conversar com a AURA",
                     on_click=abrir_aura,
@@ -1345,7 +1438,7 @@ def main(page: ft.Page):
             )
         )
 
-        # Metas + movimentos
+        # METAS
         metas_column = ft.Column(
             [
                 texto(
@@ -1396,10 +1489,14 @@ def main(page: ft.Page):
                     bgcolor=WHITE,
                     padding=15,
                     border_radius=12,
-                    border=ft.Border.all(1, BORDER),
+                    border=ft.Border.all(
+                        1,
+                        BORDER,
+                    ),
                 )
             )
 
+        # MOVIMENTOS
         movimentos_column = ft.Column(
             [
                 texto(
@@ -1422,19 +1519,28 @@ def main(page: ft.Page):
                             ft.Container(
                                 width=38,
                                 height=38,
-                                bgcolor=GREEN_LIGHT
-                                if positivo
-                                else "#FEF2F2",
+                                bgcolor=(
+                                    GREEN_LIGHT
+                                    if positivo
+                                    else RED_LIGHT
+                                ),
                                 border_radius=10,
                                 alignment=ft.Alignment.CENTER,
                                 content=ft.Icon(
-                                    ft.Icons.ARROW_UPWARD
-                                    if positivo
-                                    else ft.Icons.ARROW_DOWNWARD,
-                                    color=GREEN if positivo else RED,
+                                    (
+                                        ft.Icons.ARROW_UPWARD
+                                        if positivo
+                                        else ft.Icons.ARROW_DOWNWARD
+                                    ),
+                                    color=(
+                                        GREEN
+                                        if positivo
+                                        else RED
+                                    ),
                                     size=18,
                                 ),
                             ),
+
                             ft.Column(
                                 [
                                     texto(
@@ -1450,10 +1556,15 @@ def main(page: ft.Page):
                                 ],
                                 expand=True,
                             ),
+
                             texto(
                                 f"{movimento['valor']:+.2f} €",
                                 size=13,
-                                color=GREEN if positivo else RED,
+                                color=(
+                                    GREEN
+                                    if positivo
+                                    else RED
+                                ),
                                 weight=ft.FontWeight.BOLD,
                             ),
                         ]
@@ -1464,12 +1575,7 @@ def main(page: ft.Page):
 
         dashboard_area.controls.append(
             ft.Container(
-                padding=ft.Padding(
-                    left=25,
-                    right=25,
-                    top=0,
-                    bottom=25,
-                ),
+                padding=25,
                 content=ft.ResponsiveRow(
                     [
                         ft.Container(
@@ -1479,9 +1585,9 @@ def main(page: ft.Page):
                             },
                             content=card(
                                 metas_column,
-                                padding=20,
                             ),
                         ),
+
                         ft.Container(
                             col={
                                 "sm": 12,
@@ -1489,7 +1595,6 @@ def main(page: ft.Page):
                             },
                             content=card(
                                 movimentos_column,
-                                padding=20,
                             ),
                         ),
                     ],
@@ -1498,14 +1603,11 @@ def main(page: ft.Page):
             )
         )
 
-        # Barra inferior
+        # RODAPÉ
         dashboard_area.controls.append(
             ft.Container(
                 padding=20,
                 bgcolor=WHITE,
-                border=ft.Border.only(
-                    top=ft.BorderSide(1, BORDER),
-                ),
                 content=ft.Row(
                     [
                         texto(
@@ -1527,11 +1629,21 @@ def main(page: ft.Page):
                         ),
                     ],
                     alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                    wrap=True,
                 ),
             )
         )
 
-        # Navegação inferior
+        page.controls.clear()
+
+        page.add(
+            ft.SafeArea(
+                content=dashboard_area,
+                expand=True,
+            )
+        )
+
+        # NAVEGAÇÃO
         page.navigation_bar = ft.NavigationBar(
             selected_index=0,
             bgcolor=WHITE,
@@ -1542,16 +1654,19 @@ def main(page: ft.Page):
                     selected_icon=ft.Icons.HOME,
                     label="Início",
                 ),
+
                 ft.NavigationBarDestination(
                     icon=ft.Icons.ACCOUNT_BALANCE_WALLET_OUTLINED,
                     selected_icon=ft.Icons.ACCOUNT_BALANCE_WALLET,
                     label="Finanças",
                 ),
+
                 ft.NavigationBarDestination(
-                    icon=ft.Icons.TARGET_OUTLINED,
-                    selected_icon=ft.Icons.TARGET,
+                    icon=ft.Icons.FLAG_OUTLINED,
+                    selected_icon=ft.Icons.FLAG,
                     label="Metas",
                 ),
+
                 ft.NavigationBarDestination(
                     icon=ft.Icons.BUSINESS_OUTLINED,
                     selected_icon=ft.Icons.BUSINESS,
@@ -1561,15 +1676,11 @@ def main(page: ft.Page):
             on_change=dashboard_navigation,
         )
 
-        page.controls.clear()
-        page.add(
-            ft.SafeArea(
-                content=dashboard_area,
-                expand=True,
-            )
-        )
-
         page.update()
+
+    # ========================================================
+    # NAVEGAÇÃO
+    # ========================================================
 
     def dashboard_navigation(e):
 
@@ -1579,9 +1690,10 @@ def main(page: ft.Page):
             mostrar_dashboard()
 
         elif index == 1:
+
             mostrar_modulo(
                 "💰 Finanças",
-                "Aqui ficará o centro financeiro pessoal.",
+                "Centro financeiro pessoal.",
                 [
                     "Receitas",
                     "Despesas",
@@ -1590,9 +1702,11 @@ def main(page: ft.Page):
                     "Movimentos",
                     "Relatórios",
                 ],
+                1,
             )
 
         elif index == 2:
+
             mostrar_modulo(
                 "🎯 Metas & Poupança",
                 "Acompanha objetivos e planos de poupança.",
@@ -1603,12 +1717,14 @@ def main(page: ft.Page):
                     "PPR",
                     "Objetivos personalizados",
                 ],
+                2,
             )
 
         elif index == 3:
+
             mostrar_modulo(
                 "🏢 Perfil Empresarial",
-                "O centro de gestão do teu negócio.",
+                "Centro de gestão do teu negócio.",
                 [
                     "CRM",
                     "Clientes",
@@ -1619,28 +1735,46 @@ def main(page: ft.Page):
                     "Tesouraria",
                     "Impostos",
                 ],
+                3,
             )
 
-    def mostrar_modulo(titulo, descricao, funcionalidades):
+    # ========================================================
+    # MÓDULOS
+    # ========================================================
+
+    def mostrar_modulo(
+        titulo,
+        descricao,
+        funcionalidades,
+        indice,
+    ):
 
         page.navigation_bar = ft.NavigationBar(
-            selected_index=0,
+            selected_index=indice,
             bgcolor=WHITE,
+            indicator_color=BLUE_LIGHT,
             destinations=[
                 ft.NavigationBarDestination(
                     icon=ft.Icons.HOME_OUTLINED,
+                    selected_icon=ft.Icons.HOME,
                     label="Início",
                 ),
+
                 ft.NavigationBarDestination(
                     icon=ft.Icons.ACCOUNT_BALANCE_WALLET_OUTLINED,
+                    selected_icon=ft.Icons.ACCOUNT_BALANCE_WALLET,
                     label="Finanças",
                 ),
+
                 ft.NavigationBarDestination(
-                    icon=ft.Icons.TARGET_OUTLINED,
+                    icon=ft.Icons.FLAG_OUTLINED,
+                    selected_icon=ft.Icons.FLAG,
                     label="Metas",
                 ),
+
                 ft.NavigationBarDestination(
                     icon=ft.Icons.BUSINESS_OUTLINED,
+                    selected_icon=ft.Icons.BUSINESS,
                     label="Empresa",
                 ),
             ],
@@ -1695,7 +1829,10 @@ def main(page: ft.Page):
                     ),
                     bgcolor=WHITE,
                     border_radius=12,
-                    border=ft.Border.all(1, BORDER),
+                    border=ft.Border.all(
+                        1,
+                        BORDER,
+                    ),
                 )
             )
 
@@ -1704,9 +1841,8 @@ def main(page: ft.Page):
                 padding=25,
                 content=aura_card(
                     mensagem=(
-                        "Este módulo está preparado para crescer "
-                        "com funcionalidades reais. "
-                        "Pergunta-me o que queres fazer."
+                        "Estou contigo neste módulo. "
+                        "Se tiveres dúvidas, pergunta-me."
                     ),
                     botao_texto="Perguntar à AURA",
                     on_click=abrir_aura,
@@ -1730,34 +1866,7 @@ def main(page: ft.Page):
         page.update()
 
     # ========================================================
-    # LANDING
-    # ========================================================
-
-    def mostrar_landing():
-
-        estado["autenticado"] = False
-
-        page.navigation_bar = None
-
-        page.controls.clear()
-
-        page.add(
-            ft.SafeArea(
-                content=ft.Column(
-                    [
-                        landing_content,
-                    ],
-                    scroll=ft.ScrollMode.AUTO,
-                    expand=True,
-                ),
-                expand=True,
-            )
-        )
-
-        page.update()
-
-    # ========================================================
-    # INICIALIZAÇÃO
+    # INICIAR
     # ========================================================
 
     mostrar_landing()
@@ -1771,5 +1880,4 @@ if __name__ == "__main__":
     ft.run(
         main,
         view=ft.AppView.WEB_BROWSER,
-        route_url_strategy="path",
     )
